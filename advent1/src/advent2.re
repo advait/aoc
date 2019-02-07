@@ -64,8 +64,21 @@ let get_char_map = (s: string): CharMap.t(int) => {
   temp(s, CharMap.empty);
 };
 
-let has_n = (n: 'a, m: CharMap.t('a)): bool => {
-  CharMap.exists((_, count) => n == count, m);
+let has_n = (n: 'a, m: CharMap.t('a)): int =>
+  if (CharMap.exists((_, count) => n == count, m)) {
+    1;
+  } else {
+    0;
+  };
+
+let has_two_three = (m: CharMap.t('a)): (int, int) => {
+  (has_n(2, m), has_n(3, m));
+};
+
+let tp = (a: (int, int), b: (int, int)): (int, int) => {
+  let (a1, a2) = a;
+  let (b1, b2) = b;
+  (a1 + b1, a2 + b2);
 };
 
 let counts =
@@ -79,26 +92,7 @@ let counts =
   );
 
 let (twos, threes) =
-  fold_gen(
-    (acc, m) => {
-      let (s2, s3) = acc;
-      let s2_ =
-        if (has_n(2, m)) {
-          s2 + 1;
-        } else {
-          s2;
-        };
-      let s3_ =
-        if (has_n(3, m)) {
-          s3 + 1;
-        } else {
-          s3;
-        };
-      (s2_, s3_);
-    },
-    (0, 0),
-    counts,
-  );
+  fold_gen((acc, m) => tp(acc, has_two_three(m)), (0, 0), counts);
 
 Js.log(twos);
 Js.log(threes);

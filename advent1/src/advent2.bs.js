@@ -96,9 +96,27 @@ function get_char_map(s) {
 }
 
 function has_n(n, m) {
-  return Curry._2(CharMap[/* exists */12], (function (param, count) {
-                return Caml_obj.caml_equal(n, count);
-              }), m);
+  if (Curry._2(CharMap[/* exists */12], (function (param, count) {
+            return Caml_obj.caml_equal(n, count);
+          }), m)) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+function has_two_three(m) {
+  return /* tuple */[
+          has_n(2, m),
+          has_n(3, m)
+        ];
+}
+
+function tp(a, b) {
+  return /* tuple */[
+          a[0] + b[0] | 0,
+          a[1] + b[1] | 0
+        ];
 }
 
 function counts(param) {
@@ -110,14 +128,7 @@ function counts(param) {
 }
 
 var match = fold_gen((function (acc, m) {
-        var s3 = acc[1];
-        var s2 = acc[0];
-        var s2_ = has_n(2, m) ? s2 + 1 | 0 : s2;
-        var s3_ = has_n(3, m) ? s3 + 1 | 0 : s3;
-        return /* tuple */[
-                s2_,
-                s3_
-              ];
+        return tp(acc, has_two_three(m));
       }), /* tuple */[
       0,
       0
@@ -143,6 +154,8 @@ exports.OrderedChar = OrderedChar;
 exports.CharMap = CharMap;
 exports.get_char_map = get_char_map;
 exports.has_n = has_n;
+exports.has_two_three = has_two_three;
+exports.tp = tp;
 exports.counts = counts;
 exports.twos = twos;
 exports.threes = threes;
