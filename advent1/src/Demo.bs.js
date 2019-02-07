@@ -8,44 +8,84 @@ var Curry = require("bs-platform/lib/js/curry.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
 var Caml_format = require("bs-platform/lib/js/caml_format.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
+var Caml_builtin_exceptions = require("bs-platform/lib/js/caml_builtin_exceptions.js");
 
 var text = Fs.readFileSync("test.txt", "utf8");
 
 var re = new RegExp("(^.+$)", "gm");
 
-function gen_lines(param) {
-  var match = re.exec(text);
-  var line = match !== null ? Caml_option.nullable_to_opt(Caml_array.caml_array_get(match, 0)) : undefined;
-  if (line !== undefined) {
-    return /* :: */[
-            line,
-            gen_lines(/* () */0)
-          ];
-  } else {
-    return /* [] */0;
-  }
+function map_gen(f, g, param) {
+  return Curry._1(f, Curry._1(g, /* () */0));
 }
 
-var lines = gen_lines(/* () */0);
+function gen_lines(param, param$1) {
+  var match = re.exec(text);
+  if (match !== null) {
+    return Caml_option.nullable_to_opt(Caml_array.caml_array_get(match, 0));
+  }
+  
+}
 
-var ints = List.map(Caml_format.caml_int_of_string, lines);
+function lines(param) {
+  return gen_lines(/* () */0, param);
+}
 
-var sum = List.fold_left((function (a, b) {
-        return a + b | 0;
-      }), 0, ints);
+function ints(param) {
+  var o = lines(/* () */0);
+  if (o !== undefined) {
+    return Caml_format.caml_int_of_string(o);
+  }
+  
+}
 
-function infinite_iter(l) {
-  var current = /* record */[/* contents */l];
-  return (function (param) {
-      if (current[0] === /* [] */0) {
-        current[0] = l;
+function sum_gen(g) {
+  var _i = 0;
+  while(true) {
+    var i = _i;
+    var match = Curry._1(g, /* () */0);
+    if (match !== undefined) {
+      _i = i + match | 0;
+      continue ;
+    } else {
+      return i;
+    }
+  };
+}
+
+console.log(sum_gen(ints));
+
+function gen_to_list(g) {
+  var aux = function (_acc) {
+    while(true) {
+      var acc = _acc;
+      var match = Curry._1(g, /* () */0);
+      if (match !== undefined) {
+        _acc = /* :: */[
+          Caml_option.valFromOption(match),
+          acc
+        ];
+        continue ;
+      } else {
+        return acc;
       }
-      var match = current[0];
+    };
+  };
+  return List.rev(aux(/* [] */0));
+}
+
+function infinite_iter(g) {
+  var original_l = gen_to_list(g);
+  var l = /* record */[/* contents */original_l];
+  return (function (param) {
+      if (l[0] === /* [] */0) {
+        l[0] = original_l;
+      }
+      var match = l[0];
       if (match) {
-        current[0] = match[1];
+        l[0] = match[1];
         return match[0];
       } else {
-        return 0;
+        throw Caml_builtin_exceptions.not_found;
       }
     });
 }
@@ -86,10 +126,12 @@ console.log(repeats(0, IntSet[/* empty */0], infinite_ints));
 
 exports.text = text;
 exports.re = re;
+exports.map_gen = map_gen;
 exports.gen_lines = gen_lines;
 exports.lines = lines;
 exports.ints = ints;
-exports.sum = sum;
+exports.sum_gen = sum_gen;
+exports.gen_to_list = gen_to_list;
 exports.infinite_iter = infinite_iter;
 exports.infinite_ints = infinite_ints;
 exports.OrderedInt = OrderedInt;

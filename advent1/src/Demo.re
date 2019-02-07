@@ -1,40 +1,70 @@
-// TODO(advait): I wish I could read from stdin...
+/* TODO(advait): I wish I could read from stdin... */
 let text = Node_fs.readFileSync("test.txt", `utf8);
 
 let re = Js.Re.fromStringWithFlags("(^.+$)", ~flags="gm");
 
-let rec gen_lines = () => {
-  let line =
+/* Generator */
+type gen('a) = unit => 'a;
+
+let map_gen = (f: 'a => 'b, g: gen('a)): gen('b) => {
+  () => f(g());
+};
+
+let gen_lines = (): gen(option(string)) => {
+  () => {
     switch (Js.Re.exec(text, re)) {
     | Some(r) => Js.Re.captures(r)[0] |> Js.Nullable.toOption
     | _ => None
     };
-  switch (line) {
-  | Some(s) => [s, ...gen_lines()]
-  | _ => []
   };
 };
 
 let lines = gen_lines();
-let ints = List.map(int_of_string, lines);
-let sum = List.fold_left((a, b) => a + b, 0, ints);
+let ints =
+  map_gen(
+    o =>
+      switch (o) {
+      | Some(s) => Some(int_of_string(s))
+      | None => None
+      },
+    lines,
+  );
 
-// Generator
-type gen('a) = unit => 'a;
-
-// Given a list l, return a generator that will cycle through l
-let infinite_iter = (l: list(int)): gen(int) => {
-  let original_l = l;
-  let current = ref(l);
-  () => {
-    if (current^ == []) {
-      current := original_l;
+let sum_gen = (g: gen(option(int))): int => {
+  let rec acc = i => {
+    switch (g()) {
+    | Some(j) => acc(i + j)
+    | None => i
     };
-    switch (current^) {
+  };
+  acc(0);
+};
+
+Js.log(sum_gen(ints));
+
+let gen_to_list = (g: gen(option('a))): list('a) => {
+  let rec aux = (acc): list('a) => {
+    switch (g()) {
+    | None => acc
+    | Some(a) => aux([a, ...acc])
+    };
+  };
+  List.rev(aux([]));
+};
+
+/* Given a list l, return a generator that will cycle through l */
+let infinite_iter = (g: gen(option('a))): gen('a) => {
+  let original_l = gen_to_list(g);
+  let l = ref(original_l);
+  () => {
+    if (l^ == []) {
+      l := original_l;
+    };
+    switch (l^) {
     | [head, ...tail] =>
-      current := tail;
+      l := tail;
       head;
-    | _ => 0
+    | [] => raise(Not_found)
     };
   };
 };
