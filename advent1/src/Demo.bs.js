@@ -5,29 +5,26 @@ var Fs = require("fs");
 var List = require("bs-platform/lib/js/list.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
 var Caml_format = require("bs-platform/lib/js/caml_format.js");
+var Caml_option = require("bs-platform/lib/js/caml_option.js");
 
 var text = Fs.readFileSync("test.txt", "utf8");
 
 var re = new RegExp("(^.+$)", "gm");
 
-function foo(param) {
+function gen_lines(param) {
   var match = re.exec(text);
-  if (match !== null) {
-    var match$1 = Caml_array.caml_array_get(match, 0);
-    if (match$1 == null) {
-      return /* [] */0;
-    } else {
-      return /* :: */[
-              match$1,
-              foo(/* () */0)
-            ];
-    }
+  var line = match !== null ? Caml_option.nullable_to_opt(Caml_array.caml_array_get(match, 0)) : undefined;
+  if (line !== undefined) {
+    return /* :: */[
+            line,
+            gen_lines(/* () */0)
+          ];
   } else {
     return /* [] */0;
   }
 }
 
-var lines = foo(/* () */0);
+var lines = gen_lines(/* () */0);
 
 var ints = List.map(Caml_format.caml_int_of_string, lines);
 
@@ -39,7 +36,7 @@ console.log(sum);
 
 exports.text = text;
 exports.re = re;
-exports.foo = foo;
+exports.gen_lines = gen_lines;
 exports.lines = lines;
 exports.ints = ints;
 exports.sum = sum;

@@ -3,19 +3,19 @@ let text = Node_fs.readFileSync("test.txt", `utf8);
 
 let re = Js.Re.fromStringWithFlags("(^.+$)", ~flags="gm");
 
-let rec foo = () => {
-  switch (Js.Re.exec(text, re)) {
-  | Some(r) =>
-    switch (Js.Re.captures(r)[0] |> Js.Nullable.toOption) {
-    | Some(s) => [s, ...foo()]
-    // TODO(advait): I wish I could flatten these Nones...
-    | None => []
-    }
-  | None => []
+let rec gen_lines = () => {
+  let line =
+    switch (Js.Re.exec(text, re)) {
+    | Some(r) => Js.Re.captures(r)[0] |> Js.Nullable.toOption
+    | _ => None
+    };
+  switch (line) {
+  | Some(s) => [s, ...gen_lines()]
+  | _ => []
   };
 };
-let lines = foo();
 
+let lines = gen_lines();
 let ints = List.map(int_of_string, lines);
 let sum = List.fold_left((a, b) => a + b, 0, ints);
 
