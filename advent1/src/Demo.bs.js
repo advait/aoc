@@ -2,7 +2,9 @@
 'use strict';
 
 var Fs = require("fs");
+var $$Set = require("bs-platform/lib/js/set.js");
 var List = require("bs-platform/lib/js/list.js");
+var Curry = require("bs-platform/lib/js/curry.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
 var Caml_format = require("bs-platform/lib/js/caml_format.js");
 var Caml_option = require("bs-platform/lib/js/caml_option.js");
@@ -32,7 +34,55 @@ var sum = List.fold_left((function (a, b) {
         return a + b | 0;
       }), 0, ints);
 
-console.log(sum);
+function infinite_iter(l) {
+  var current = /* record */[/* contents */l];
+  return (function (param) {
+      if (current[0] === /* [] */0) {
+        current[0] = l;
+      }
+      var match = current[0];
+      if (match) {
+        current[0] = match[1];
+        return match[0];
+      } else {
+        return 0;
+      }
+    });
+}
+
+var infinite_ints = infinite_iter(ints);
+
+function compare(a, b) {
+  var diff = a - b | 0;
+  if (diff > 0) {
+    return 1;
+  } else if (diff < 0) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
+var OrderedInt = /* module */[/* compare */compare];
+
+var IntSet = $$Set.Make(OrderedInt);
+
+function repeats(_cur, _visited, l) {
+  while(true) {
+    var visited = _visited;
+    var cur = _cur;
+    if (Curry._2(IntSet[/* mem */2], cur, visited)) {
+      return cur;
+    } else {
+      var visited_ = Curry._2(IntSet[/* add */3], cur, visited);
+      _visited = visited_;
+      _cur = cur + Curry._1(l, /* () */0) | 0;
+      continue ;
+    }
+  };
+}
+
+console.log(repeats(0, IntSet[/* empty */0], infinite_ints));
 
 exports.text = text;
 exports.re = re;
@@ -40,4 +90,9 @@ exports.gen_lines = gen_lines;
 exports.lines = lines;
 exports.ints = ints;
 exports.sum = sum;
+exports.infinite_iter = infinite_iter;
+exports.infinite_ints = infinite_ints;
+exports.OrderedInt = OrderedInt;
+exports.IntSet = IntSet;
+exports.repeats = repeats;
 /* text Not a pure module */
