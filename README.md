@@ -1,6 +1,6 @@
 # Advait's AOC ReasonML Attempts
 
-Advait is stubling his way through [Advent of Code](https://adventofcode.com/) in [ReasonML](http://reasonmlhub.com/exploring-reasonml/ch_about-reasonml.html#what-is-reasonml). Follow his misadventures here.
+Advait is stumbling his way through [Advent of Code](https://adventofcode.com/) in [ReasonML](http://reasonmlhub.com/exploring-reasonml/ch_about-reasonml.html#what-is-reasonml). Follow his misadventures here.
 
 # Build
 ```
