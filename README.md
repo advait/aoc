@@ -1,6 +1,6 @@
-# Basic Reason Template
+# Advait's AOC ReasonML Attempts
 
-Hello! This project allows you to quickly get started with Reason and BuckleScript. If you wanted a more sophisticated version, try the `react` template (`bsb -theme react -init .`).
+Advait is stubling his way through [Advent of Code](https://adventofcode.com/) in [ReasonML](http://reasonmlhub.com/exploring-reasonml/ch_about-reasonml.html#what-is-reasonml). Follow his misadventures here.
 
 # Build
 ```
@@ -15,4 +15,4 @@ npm run start
 
 
 # Editor
-If you use `vscode`, Press `Windows + Shift + B` it will build automatically
+If you use `vscode`, Press `Command + Shift + B` it will build automatically
