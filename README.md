@@ -7,12 +7,16 @@ Advait is stumbling his way through [Advent of Code](https://adventofcode.com/) 
 npm run build
 ```
 
+This will create a bunch of bucklescript-based JS files in the src folder. Simply run them like:
+
+```
+node src/advent3.bs.js
+```
+
 # Build + Watch
 
 ```
 npm run start
 ```
 
-
-# Editor
-If you use `vscode`, Press `Command + Shift + B` it will build automatically
+This will watch the reason files and continually update the generated JS. Watch out for syntax errors... ReasonML is alpha quality software.
