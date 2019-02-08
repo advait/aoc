@@ -145,3 +145,19 @@ let overlapping_squares =
   |> SquareMap.cardinal;
 
 Js.log(overlapping_squares);
+
+/* Part 2: Figure out which claim doesn't overlap with anything */
+
+let nonoverlapping_claims =
+  claims
+  |> List.filter(claim =>
+       claim
+       |> claim_to_squares
+       |> List.for_all(square =>
+            switch (square_counts |> SquareMap.find(square)) {
+            | 1 => true
+            | _ => false
+            }
+          )
+     );
+Js.log(nonoverlapping_claims);
