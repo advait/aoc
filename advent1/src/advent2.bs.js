@@ -3,6 +3,7 @@
 
 var Fs = require("fs");
 var $$Map = require("bs-platform/lib/js/map.js");
+var List = require("bs-platform/lib/js/list.js");
 var Curry = require("bs-platform/lib/js/curry.js");
 var $$String = require("bs-platform/lib/js/string.js");
 var Caml_obj = require("bs-platform/lib/js/caml_obj.js");
@@ -41,9 +42,40 @@ function gen_lines(param, param$1) {
   
 }
 
-function lines(param) {
-  return gen_lines(/* () */0, param);
+function gen_to_list(g) {
+  var aux = function (_acc) {
+    while(true) {
+      var acc = _acc;
+      var match = Curry._1(g, /* () */0);
+      if (match !== undefined) {
+        _acc = /* :: */[
+          Caml_option.valFromOption(match),
+          acc
+        ];
+        continue ;
+      } else {
+        return acc;
+      }
+    };
+  };
+  return List.rev(aux(/* [] */0));
 }
+
+function list_to_gen(l) {
+  var r = /* record */[/* contents */l];
+  return (function (param) {
+      var match = r[0];
+      if (match) {
+        r[0] = match[1];
+        return Caml_option.some(match[0]);
+      }
+      
+    });
+}
+
+var lines = gen_to_list((function (param) {
+        return gen_lines(/* () */0, param);
+      }));
 
 function compare(a, b) {
   var diff = a - b | 0;
@@ -119,8 +151,10 @@ function tp(a, b) {
         ];
 }
 
+var partial_arg = list_to_gen(lines);
+
 function counts(param) {
-  var o = lines(/* () */0);
+  var o = Curry._1(partial_arg, /* () */0);
   if (o !== undefined) {
     return Caml_option.some(get_char_map(o));
   }
@@ -144,11 +178,63 @@ console.log(threes);
 
 console.log(Caml_int32.imul(twos, threes));
 
+function comp_boxes(a, b) {
+  if (a === "" || b === "") {
+    return 0;
+  } else {
+    var a_ = $$String.sub(a, 1, a.length - 1 | 0);
+    var b_ = $$String.sub(b, 1, b.length - 1 | 0);
+    var remaining = comp_boxes(a_, b_);
+    var match = Caml_string.get(a, 0) === Caml_string.get(b, 0);
+    if (match) {
+      return remaining;
+    } else {
+      return 1 + remaining | 0;
+    }
+  }
+}
+
+var sorted_lines = List.sort($$String.compare, lines);
+
+function one_comp(_lines) {
+  while(true) {
+    var lines = _lines;
+    if (lines) {
+      var match = lines[1];
+      if (match) {
+        var b = match[0];
+        var a = lines[0];
+        var diff = comp_boxes(a, b);
+        if (diff === 1) {
+          return /* tuple */[
+                  a,
+                  b
+                ];
+        } else {
+          _lines = /* :: */[
+            b,
+            match[1]
+          ];
+          continue ;
+        }
+      } else {
+        throw Caml_builtin_exceptions.not_found;
+      }
+    } else {
+      throw Caml_builtin_exceptions.not_found;
+    }
+  };
+}
+
+console.log(one_comp(sorted_lines));
+
 exports.text = text;
 exports.re = re;
 exports.map_gen = map_gen;
 exports.fold_gen = fold_gen;
 exports.gen_lines = gen_lines;
+exports.gen_to_list = gen_to_list;
+exports.list_to_gen = list_to_gen;
 exports.lines = lines;
 exports.OrderedChar = OrderedChar;
 exports.CharMap = CharMap;
@@ -159,4 +245,7 @@ exports.tp = tp;
 exports.counts = counts;
 exports.twos = twos;
 exports.threes = threes;
+exports.comp_boxes = comp_boxes;
+exports.sorted_lines = sorted_lines;
+exports.one_comp = one_comp;
 /* text Not a pure module */
