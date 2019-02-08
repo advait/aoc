@@ -1,13 +1,6 @@
+/* Start Helper feunctions - Advait's hacked-together stdlib. */
 /* TODO(advait): I wish I could read from stdin... */
 let text = Node_fs.readFileSync("test.txt", `utf8);
-
-type claim = {
-  id: int,
-  x: int,
-  y: int,
-  width: int,
-  height: int,
-};
 
 let re = Js.Re.fromStringWithFlags("(^.+$)", ~flags="gm");
 
@@ -67,8 +60,11 @@ let list_to_gen = (l: list('a)): gen(option('a)) => {
 
 let lines = gen_lines() |> gen_to_list;
 
+/* End Helper Functions */
+
 let re2 = Js.Re.fromString("^#(\d+) @ (\d+),(\d+): (\d+)x(\d+)$");
 
+/* Unsafely unwraps a Js.Nullable */
 let unwrap_nullable = (n: Js.Nullable.t('a)): 'a => {
   switch (n |> Js.Nullable.toOption) {
   | Some(a) => a
@@ -76,6 +72,16 @@ let unwrap_nullable = (n: Js.Nullable.t('a)): 'a => {
   };
 };
 
+/* Represents an elf claim on the magic monolithic cloth */
+type claim = {
+  id: int,
+  x: int,
+  y: int,
+  width: int,
+  height: int,
+};
+
+/* Use regex to parse a string into a claim */
 let string_to_claim = (s: string): claim => {
   switch (Js.Re.exec(s, re2)) {
   | Some(r) =>
@@ -101,6 +107,7 @@ module SquareMap =
     let compare = compare;
   });
 
+/* Return a generator that yields values from [start, start+len) */
 let n_iter = (start: int, len: int): gen(option(int)) => {
   let cur = ref(0);
   () =>
@@ -112,6 +119,7 @@ let n_iter = (start: int, len: int): gen(option(int)) => {
     };
 };
 
+/* Given a claim return a list of squares it covers */
 let claim_to_squares = (c: claim): list(square) => {
   let xs = n_iter(c.x, c.width) |> gen_to_list;
   let ys = n_iter(c.y, c.height) |> gen_to_list;
