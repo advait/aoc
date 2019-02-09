@@ -1,71 +1,8 @@
-/* TODO(advait): I wish I could read from stdin... */
-let text = Node_fs.readFileSync("test.txt", `utf8);
+open Batteries;
 
-let re = Js.Re.fromStringWithFlags("(^.+$)", ~flags="gm");
+let lines = File.lines_of("../test.txt") |> BatList.of_enum;
 
-/* Generator */
-type gen('a) = unit => 'a;
-
-let map_gen = (f: 'a => 'b, g: gen('a)): gen('b) => {
-  () => f(g());
-};
-
-let rec fold_gen = (f: ('a, 'b) => 'a, start: 'a, g: gen(option('b))) => {
-  switch (g()) {
-  | None => start
-  | Some(b) => fold_gen(f, f(start, b), g)
-  };
-};
-
-let gen_lines = (): gen(option(string)) => {
-  () => {
-    switch (Js.Re.exec(text, re)) {
-    | Some(r) => Js.Re.captures(r)[0] |> Js.Nullable.toOption
-    | _ => None
-    };
-  };
-};
-
-let gen_to_list = (g: gen(option('a))): list('a) => {
-  let rec aux = (acc): list('a) => {
-    switch (g()) {
-    | None => acc
-    | Some(a) => aux([a, ...acc])
-    };
-  };
-  List.rev(aux([]));
-};
-
-let list_to_gen = (l: list('a)): gen(option('a)) => {
-  let r = ref(l);
-  () => {
-    switch (r^) {
-    | [] => None
-    | [head, ...tail] =>
-      r := tail;
-      Some(head);
-    };
-  };
-};
-
-let lines = gen_lines() |> gen_to_list;
-
-module OrderedChar = {
-  type t = char;
-  let compare: (t, t) => int =
-    (a, b) => {
-      let diff = Char.code(a) - Char.code(b);
-      if (diff > 0) {
-        1;
-      } else if (diff < 0) {
-        (-1);
-      } else {
-        0;
-      };
-    };
-};
-
-module CharMap = Map.Make(OrderedChar);
+module CharMap = BatMap.Char;
 
 /* Given a string return a map of char counts */
 let get_char_map = (s: string): CharMap.t(int) => {
@@ -103,35 +40,28 @@ let tp = (a: (int, int), b: (int, int)): (int, int) => {
   (a1 + b1, a2 + b2);
 };
 
-let counts =
-  map_gen(
-    o =>
-      switch (o) {
-      | None => None
-      | Some(s) => Some(get_char_map(s))
-      },
-    lines |> list_to_gen,
-  );
+let counts = lines |> BatList.map(get_char_map);
 
 let (twos, threes) =
-  fold_gen((acc, m) => tp(acc, has_two_three(m)), (0, 0), counts);
+  counts
+  |> BatList.fold_left((acc, m) => tp(acc, has_two_three(m)), (0, 0));
 
-Js.log(twos);
-Js.log(threes);
-Js.log(twos * threes);
+print_endline(twos |> string_of_int);
+print_endline(threes |> string_of_int);
+print_endline(twos * threes |> string_of_int);
 
 /* Given two box IDs return the number of chars that differ from each */
 let rec comp_boxes = (a: string, b: string): int =>
   if (a == "" || b == "") {
     0;
   } else {
-    let a_ = String.sub(a, 1, String.length(a) - 1);
-    let b_ = String.sub(b, 1, String.length(b) - 1);
+    let a_ = BatString.sub(a, 1, BatString.length(a) - 1);
+    let b_ = BatString.sub(b, 1, BatString.length(b) - 1);
     let remaining = comp_boxes(a_, b_);
     a.[0] == b.[0] ? remaining : 1 + remaining;
   };
 
-let sorted_lines = List.sort(String.compare, lines);
+let sorted_lines = BatList.sort(BatString.compare, lines);
 
 let rec one_comp = (lines: list(string)): (string, string) => {
   switch (lines) {
@@ -146,4 +76,4 @@ let rec one_comp = (lines: list(string)): (string, string) => {
   };
 };
 
-Js.log(sorted_lines |> one_comp);
+print_endline(dump(sorted_lines |> one_comp));
