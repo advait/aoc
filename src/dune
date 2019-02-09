@@ -9,5 +9,10 @@
   (libraries batteries))
 
 (executable
+  (name advent3)
+  (modules advent3)
+  (libraries batteries re))
+
+(executable
   (name advent4)
   (modules advent4))
