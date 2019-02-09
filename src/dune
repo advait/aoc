@@ -1,0 +1,8 @@
+(executable
+  (name advent1)
+  (modules advent1)
+  (libraries batteries))
+
+(executable
+  (name advent4)
+  (modules advent4))

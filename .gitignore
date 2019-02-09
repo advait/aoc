@@ -6,3 +6,4 @@ npm-debug.log
 /node_modules/
 test.txt
 src/*.bs.js
+_build/
