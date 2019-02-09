@@ -4,19 +4,17 @@ Advait is stumbling his way through [Advent of Code](https://adventofcode.com/) 
 
 # Build
 ```
-npm run build
+dune build @./all
 ```
 
-This will create a bunch of bucklescript-based JS files in the src folder. Simply run them like:
+This will create a binary executables for each of the advent exercise:
 
 ```
-node src/advent3.bs.js
+./_build/default/src/advent1.exe
 ```
 
 # Build + Watch
 
 ```
-npm run start
+dune build @./all --watch
 ```
-
-This will watch the reason files and continually update the generated JS. Watch out for syntax errors... ReasonML is alpha quality software.
