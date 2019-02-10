@@ -38,6 +38,29 @@ let string_of_char_list = (l: list(char)): string => {
   l |> BatList.map(BatString.of_char) |> BatString.join("");
 };
 
+/* Part one */
 print_endline(
   "Length: " ++ string_of_int(react_all(polymer) |> BatList.length),
 );
+
+/* Part Two */
+
+let alphabet =
+  BatEnum.(int_of_char('a') -- int_of_char('z'))
+  |> BatEnum.map(char_of_int)
+  |> BatList.of_enum;
+
+/* Filters the polymer of the given letter */
+let filter_polymer = (letter: char, l: list(char)): list(char) => {
+  l |> BatList.filter(c => BatChar.lowercase(c) != BatChar.lowercase(letter));
+};
+
+let filtered_polymers =
+  alphabet |> BatList.map(letter => filter_polymer(letter, polymer));
+
+let smallest_polymer =
+  filtered_polymers
+  |> BatList.map(polymer => react_all(polymer) |> BatList.length)
+  |> BatList.min;
+
+print_endline("Smallest polymer: " ++ string_of_int(smallest_polymer));
