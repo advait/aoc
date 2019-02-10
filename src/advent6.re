@@ -13,21 +13,6 @@ let group_by = (which_group: 'a => 'g, l: list('a)): BatMap.t('g, list('a)) => {
      );
 };
 
-/* Returns the (k, v) pair for the maximum value in the map */
-let rec max_map_value = (m: BatMap.t('a, 'b)): ('a, 'b) => {
-  switch (m) {
-  | m when m == BatMap.empty => ((-1), (-1))
-  | m =>
-    let ((k1, v1), m_) = BatMap.pop(m);
-    let (k2, v2) = max_map_value(m_);
-    if (max(v1, v2) == v1) {
-      (k1, v1);
-    } else {
-      (k2, v2);
-    };
-  };
-};
-
 let lines = File.lines_of("../test.txt") |> BatList.of_enum;
 
 type point = {
