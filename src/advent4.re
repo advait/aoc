@@ -13,19 +13,19 @@ let group_by = (which_group: 'a => 'g, l: list('a)): BatMap.t('g, list('a)) => {
      );
 };
 
-let max_map_value = (acc: ('k, 'v), m: BatMap.t('k, 'v)): ('k, 'v) => {
-  BatMap.foldi(
-    (key, value, acc) => {
-      let (max_key, max_value) = acc;
-      if (max(max_value, value) == value) {
-        (key, value);
-      } else {
-        (max_key, max_value);
-      };
-    },
-    m,
-    acc,
-  );
+/* Returns the (k, v) pair for the maximum value in the map */
+let rec max_map_value = (m: BatMap.t('a, 'b)): ('a, 'b) => {
+  switch (m) {
+  | m when m == BatMap.empty => ((-1), (-1))
+  | m =>
+    let ((k1, v1), m_) = BatMap.pop(m);
+    let (k2, v2) = max_map_value(m_);
+    if (max(v1, v2) == v1) {
+      (k1, v1);
+    } else {
+      (k2, v2);
+    };
+  };
 };
 
 let lines = File.lines_of("../test.txt") |> BatList.of_enum;
@@ -146,20 +146,19 @@ let rawEventsToEvents = (l: list(rawEvent)): list(event) => {
 
 let events = rawEvents |> rawEventsToEvents;
 
-module IntMap = BatMap.Int;
-type guardMap = IntMap.t(list(event));
+type guardMap = BatMap.t(int, list(event));
 
 let eventsByGuard: guardMap =
   events
   |> BatList.fold_left(
        (acc, e) => {
-         let l = acc |> IntMap.find_default([], e.g);
+         let l = acc |> BatMap.find_default([], e.g);
          /* Add events in reverse */
-         acc |> IntMap.add(e.g, [e, ...l]);
+         acc |> BatMap.add(e.g, [e, ...l]);
        },
-       IntMap.empty,
+       BatMap.empty,
      )
-  |> IntMap.map(l => l |> BatList.rev); /* Reverse events */
+  |> BatMap.map(l => l |> BatList.rev); /* Reverse events */
 
 /* let eventsByGuard2 = events |> group_by(e => e.g); */
 
@@ -195,48 +194,21 @@ let rec mins_asleep = (l: list(event)): list(int) => {
   };
 };
 
-let sleep_by_guard = eventsByGuard |> IntMap.map(l => l |> time_asleep);
+let sleep_by_guard = eventsByGuard |> BatMap.map(l => l |> time_asleep);
 
 let mins_asleep_by_guard =
   eventsByGuard
-  |> IntMap.map(mins_asleep)
-  |> IntMap.map(mins =>
+  |> BatMap.map(mins_asleep)
+  |> BatMap.map(mins =>
        mins |> group_by(identity) |> BatMap.map(BatList.length)
      );
 
-let rec mmv = (m: IntMap.t(int)): (int, int) => {
-  switch (m) {
-  | m when m == IntMap.empty => ((-1), (-1))
-  | m =>
-    let ((k1, v1), m_) = IntMap.pop(m);
-    let (k2, v2) = mmv(m_);
-    if (v1 > v2) {
-      (k1, v1);
-    } else {
-      (k2, v2);
-    };
-  };
-};
-
-let rec mmv2 = (m: BatMap.t(int, int)): (int, int) => {
-  switch (m) {
-  | m when m == BatMap.empty => ((-1), (-1))
-  | m =>
-    let ((k1, v1), m_) = BatMap.pop(m);
-    let (k2, v2) = mmv2(m_);
-    if (v1 > v2) {
-      (k1, v1);
-    } else {
-      (k2, v2);
-    };
-  };
-};
-
-let (g, sleep) = sleep_by_guard |> mmv;
+let (g, sleep) = sleep_by_guard |> max_map_value;
 print_endline("Guard: " ++ string_of_int(g));
 print_endline("Sleep: " ++ string_of_int(sleep));
 
-let (max_min, appearances) = mins_asleep_by_guard |> IntMap.find(g) |> mmv2;
+let (max_min, appearances) =
+  mins_asleep_by_guard |> BatMap.find(g) |> max_map_value;
 print_endline("Max min: " ++ string_of_int(max_min));
 print_endline("Appearancesl: " ++ string_of_int(appearances));
 
