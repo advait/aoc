@@ -24,3 +24,9 @@
   (modules advent5)
   (libraries batteries re)
 )
+
+(executable
+  (name advent6)
+  (modules advent6)
+  (libraries batteries re)
+)
