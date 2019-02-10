@@ -211,5 +211,21 @@ let (max_min, appearances) =
   mins_asleep_by_guard |> BatMap.find(g) |> max_map_value;
 print_endline("Max min: " ++ string_of_int(max_min));
 print_endline("Appearancesl: " ++ string_of_int(appearances));
-
 print_endline("Answer #1: " ++ string_of_int(g * max_min));
+
+/* Part Two */
+
+let guards = mins_asleep_by_guard |> BatMap.keys |> BatList.of_enum;
+let (count, minute, guard) =
+  guards
+  |> BatList.map(g => {
+       let mins_asleep = mins_asleep_by_guard |> BatMap.find(g);
+       let (min, count) = mins_asleep |> max_map_value;
+       (count, min, g);
+     })
+  |> BatList.max;
+print_endline("Part 2");
+print_endline("Guard: " ++ string_of_int(guard));
+print_endline("Minute: " ++ string_of_int(minute));
+print_endline("Count: " ++ string_of_int(count));
+print_endline("Answer: " ++ string_of_int(guard * minute));
