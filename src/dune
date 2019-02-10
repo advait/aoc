@@ -17,5 +17,10 @@
   (name advent4)
   (modules advent4)
   (libraries batteries re)
-  (preprocess (pps ppx_inline_test))
+)
+
+(executable
+  (name advent5)
+  (modules advent5)
+  (libraries batteries re)
 )
