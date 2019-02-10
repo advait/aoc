@@ -63,19 +63,22 @@ let closest_points = (f: point, l: list(point)): (int, list(point)) => {
      );
 };
 
-let filed_to_closest = field |> BatList.map(f => closest_points(f, points));
+let field_of_closest_points =
+  field |> BatList.map(f => closest_points(f, points));
 let biggest_area =
-  filed_to_closest
+  field_of_closest_points
   |> BatList.filter(s => {
+       /* Remove field points where there are multiple closest */
        let (_, points) = s;
        points |> BatList.length == 1;
      })
   |> BatList.map(s => {
+       /* Select the point coords */
        let (_, points) = s;
        points |> BatList.hd;
      })
   |> group_by(identity)
-  |> BatMap.map(BatList.length)
+  |> BatMap.map(BatList.length)  /* Count number of point occurrances */
   |> BatMap.values
   |> BatList.of_enum
   |> BatList.max;
