@@ -1,6 +1,6 @@
 open Batteries;
 
-let lines = File.lines_of("../test.txt") |> BatList.of_enum;
+let lines = File.lines_of("../inputs/5.txt") |> BatList.of_enum;
 assert(lines |> BatList.length == 1);
 let polymer = lines |> BatList.hd |> BatString.to_list;
 
@@ -17,7 +17,9 @@ let are_polar = (a: char, b: char): bool =>
 
 let rec react_once = (l: list(char)): (list(char), bool) => {
   switch (l) {
-  | [a, b, ...tail] when are_polar(a, b) => (tail, true)
+  | [a, b, ...tail] when are_polar(a, b) =>
+    let (new_tail, _) = react_once(tail);
+    (new_tail, true);
   | [a, ...tail] =>
     let (new_tail, reacted) = react_once(tail);
     ([a, ...new_tail], reacted);
