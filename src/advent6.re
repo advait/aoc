@@ -25,16 +25,6 @@ let assert_equal = (a: 'a, b: 'a): unit => {
   assert(a == b);
 };
 
-let assert_equal_set = (a: BatSet.t('a), b: BatSet.t('a)): unit => {
-  if (!BatSet.equal(a, b)) {
-    print_endline("Failed assert:\na:" ++ dump(a) ++ "\nb:" ++ dump(b));
-    let diff = BatSet.sym_diff(a, b);
-    print_endline("A only: " ++ dump(BatSet.intersect(a, diff)));
-    print_endline("B only: " ++ dump(BatSet.intersect(b, diff)));
-  };
-  assert(BatSet.equal(a, b));
-};
-
 let lines = File.lines_of("../inputs/6.txt") |> BatList.of_enum;
 
 type point = {
@@ -112,39 +102,7 @@ print_endline("Part 1: " ++ string_of_int(biggest_area));
 
 /* Begin part two */
 
-/* Diagonal directions */
-type dir =
-  | DR
-  | DL
-  | UL
-  | UR;
-
-/* Given a point, take a step in direction d */
-let step = (d: dir, p: point): point => {
-  switch (d) {
-  | DR => {x: p.x + 1, y: p.y + 1}
-  | DL => {x: p.x - 1, y: p.y + 1}
-  | UL => {x: p.x - 1, y: p.y - 1}
-  | UR => {x: p.x + 1, y: p.y - 1}
-  };
-};
-let step_test = () => {
-  assert_equal(step(DR, point(0, 0)), point(1, 1));
-  assert_equal(step(DR, point(0, -1)), point(1, 0));
-};
-let _ = step_test();
-
-/* Given a trace direction, return the next direction to follow to
-   trace a diamond clockwise */
-let next_dir = (d: dir): option(dir) => {
-  switch (d) {
-  | DR => Some(DL)
-  | DL => Some(UL)
-  | UL => Some(UR)
-  | UR => None
-  };
-};
-
+/* Represents a square bounding box */
 type bounding_box = {
   x0: int,
   x1: int,
@@ -157,110 +115,98 @@ let contains = (p: point, b: bounding_box): bool => {
   p.x >= b.x0 && p.x <= b.x1 && p.y >= b.y0 && p.y <= b.y1;
 };
 
-/* Return all the points around p of distance exactly=n */
-let points_around = (n: int, p: point): BatSet.t(point) => {
-  let b: bounding_box = {x0: p.x - n, x1: p.x + n, y0: p.y - n, y1: p.y + n};
-  let rec temp = (cur: point, d: dir): BatSet.t(point) => {
-    let next = step(d, cur);
-    if (contains(next, b)) {
-      let next_set = temp(next, d);
-      BatSet.add(cur, next_set);
-    } else {
-      switch (next_dir(d)) {
-      | Some(d) => temp(cur, d)
-      | None => BatSet.empty
-      };
-    };
-  };
-  let top_point = {x: p.x, y: p.y - n};
-  /*let starting_point = step(DR, top_point);*/
-  temp(top_point, DR) |> comb(ret => assert(ret |> BatSet.cardinal == 4 * n));
+/* Return a bounding box whose edge encapsulates b */
+let bigger_box = (b: bounding_box) => {
+  x0: b.x0 - 1,
+  x1: b.x1 + 1,
+  y0: b.y0 - 1,
+  y1: b.y1 + 1,
 };
 
-/* Return all the points around p of distance <= n */
-let all_points_around = (n: int, p: point): BatSet.t(point) => {
-  let rec temp = (n: int): BatSet.t(point) => {
-    switch (n) {
-    | 0 => BatSet.of_list([p])
-    | n =>
-      let a = points_around(n, p);
-      let b = temp(n - 1);
-      BatSet.union(a, b) |> comb(_ => print_endline("d" ++ dump(n)));
-    };
+type dir =
+  | Right
+  | Down
+  | Left
+  | Up;
+
+/* Return the next direction to go to trace a clockwise path. */
+let next_dir = (d: dir): dir => {
+  switch (d) {
+  | Right => Down
+  | Down => Left
+  | Left => Up
+  | Up => Right
   };
-  temp(n) |> comb(_ => print_endline("Creating set"));
 };
 
-let all_points_around_test = () => {
-  assert_equal_set(
-    all_points_around(0, point(0, 0)),
-    [point(0, 0)] |> BatSet.of_list,
-  );
-  assert_equal_set(
-    all_points_around(1, point(0, 0)),
-    [point(0, -1), point(1, 0), point(0, 1), point(-1, 0), point(0, 0)]
-    |> BatSet.of_list,
-  );
-  assert_equal_set(
-    all_points_around(2, point(0, 0)),
+/* Return a new point that is a step in d from p */
+let step = (d: dir, p: point): point => {
+  switch (d) {
+  | Right => {x: p.x + 1, y: p.y}
+  | Down => {x: p.x, y: p.y + 1}
+  | Left => {x: p.x - 1, y: p.y}
+  | Up => {x: p.x, y: p.y - 1}
+  };
+};
+
+/* Return a list of points that denote the edge of the bounding box */
+let iter_edge = (b: bounding_box): list(point) =>
+  if (b.x0 == b.x1 && b.y0 == b.y1) {
     [
-      point(0, -2),
-      point(1, -1),
-      point(2, 0),
-      point(1, 1),
-      point(0, 2),
-      point(-1, 1),
-      point(-2, 0),
-      point(-1, -1),
-      point(0, -1),
-      point(1, 0),
-      point(0, 1),
-      point(-1, 0),
-      point(0, 0),
-    ]
-    |> BatSet.of_list,
-  );
-  /*
-   assert_equal(
-     all_points_around(4000, point(0, 0)) |> BatSet.cardinal,
-     32008001,
-   );
-   */
+      /* Special case for origin box */
+      {x: b.x0, y: b.y0},
+    ];
+  } else {
+    let top_left: point = {x: b.x0, y: b.y0};
+    let rec temp = (cur: point, d: dir): list(point) =>
+      if (cur == top_left && d == Up) {
+        [];
+          /* We've made an entire clockwise wrap around the box */
+      } else {
+        let next = step(d, cur);
+        if (!contains(next, b)) {
+          /* Stepping in this direction leaves the box. Change dir. */
+          temp(
+            cur,
+            next_dir(d),
+          );
+        } else {
+          [cur, ...temp(next, d)];
+        };
+      };
+    temp(top_left, Right);
+  };
+
+/* Returns whether all points in l are < n distance of p. */
+let all_points_distance = (p: point, l: list(point)): int => {
+  l |> BatList.map(p_ => len(p, p_)) |> BatList.sum;
 };
-let _ = all_points_around_test();
 
-let max_distance = 10000 - 1;
+let max_distance = 10000;
 
-let nmost_point = (l: list(point), comp: (point, point) => bool): point => {
-  l
-  |> BatList.reduce((p1, p2) =>
-       if (comp(p1, p2)) {
-         p1;
-       } else {
-         p2;
-       }
-     );
+/* Recursively expands boxes around the orgin until the outer rim contains no hits */
+let count_points_within = (n: int, l: list(point)): int => {
+  let rec temp = (b: bounding_box): int => {
+    let count =
+      b
+      |> iter_edge
+      |> BatList.filter(p => all_points_distance(p, l) < n)
+      |> BatList.length;
+    if (count == 0) {
+      0;
+    } else {
+      count + temp(b |> bigger_box);
+    };
+  };
+  /* let start_point = l |> BatList.hd; */
+  let start_point = {x: 200, y: 100};
+  temp({
+    x0: start_point.x,
+    x1: start_point.x,
+    y0: start_point.y,
+    y1: start_point.y,
+  });
 };
-let leftmost = (p1: point, p2: point) => p1.x < p2.x;
-let rightmost = (p1: point, p2: point) => p1.x >= p2.x;
-let topmost = (p1: point, p2: point) => p1.y < p2.y;
-let bottommost = (p1: point, p2: point) => p1.y >= p2.y;
 
-let leftmost_point = nmost_point(points, leftmost);
-let topmost_point = nmost_point(points, topmost);
-let rightmost_point = nmost_point(points, rightmost);
-let bottommost_point = nmost_point(points, bottommost);
-
-let key_points = [
-  leftmost_point,
-  topmost_point,
-  rightmost_point,
-  bottommost_point,
-];
-let all_sets =
-  key_points |> BatList.map(p => all_points_around(max_distance, p));
-let intersection =
-  all_sets |> BatList.reduce((s1, s2) => BatSet.intersect(s1, s2));
-print_endline(
-  "Intersection size: " ++ string_of_int(BatSet.cardinal(intersection)),
-);
+let c = count_points_within(max_distance, points);
+print_endline("Part 2: " ++ string_of_int(c));
