@@ -2,10 +2,10 @@
     "version": "0.1.0",
     "command": "npm",
     "options": {
-      "cwd": "${workspaceRoot}"
+      "cwd": "${workspaceRoot}/purebs"
     },
     "type": "shell",
-    "args": ["run", "start"],
+    "args": ["run", "run"],
     "presentation": {
       "echo": true,
       "reveal": "always",
