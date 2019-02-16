@@ -25,6 +25,7 @@ let rec mapReduce =
   };
 };
 
+/* Sum the int items in l */
 let rec sum = (l: list(int)): int => {
   switch (l) {
   | [] => 0
@@ -61,4 +62,29 @@ let rec sumMetadata = (n: node): int => {
 
 let (root, remaining) = parse(numbers);
 assert(remaining == []);
-Js.log(sumMetadata(root));
+
+/* Part one */
+Js.log2("Part One", sumMetadata(root));
+
+/* Part two */
+
+/* Return the value of the given node */
+let rec nodeValue = (n: node): int => {
+  /* Given children and a one-based index i, return the value of the child node
+     following the rules of AOC. */
+  let childrenIndexValue = (children: list(node), i: int): int => {
+    switch (i) {
+    | 0 => 0
+    | n when n - 1 >= children->Belt_List.length => 0
+    | n => children->Belt_List.getExn(n - 1)->nodeValue
+    };
+  };
+
+  if (n.children == []) {
+    n.metadata->sum;
+  } else {
+    n.metadata->Belt_List.map(i => childrenIndexValue(n.children, i))->sum;
+  };
+};
+
+Js.log2("Part Two", nodeValue(root));
