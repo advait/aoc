@@ -33,7 +33,7 @@ let depList =
 module StringMap = Belt_Map.String;
 type depMap = StringMap.t(list(string));
 
-let allDeps: depMap =
+let nodeDeps: depMap =
   depList->Belt_List.reduce(
     StringMap.empty,
     (acc, entry) => {
@@ -59,24 +59,149 @@ let compareDepEntries = (e1: depEntry, e2: depEntry): int => {
   };
 };
 
+/* Returns a list of nodes with no deps in appropriate order */
+let availableNodes = (deps: depMap): list(string) => {
+  deps
+  ->StringMap.toList
+  ->Belt_List.keep(entry => {
+      let (node, deps) = entry;
+      deps->Belt_List.length == 0;
+    })
+  ->Belt_List.map(entry => {
+      let (node, _) = entry;
+      node;
+    })
+  ->Belt_List.sort(compare);
+};
+
+/* Updates the map removing a node and any dep entries for that node */
+let removeNode = (deps: depMap, rmNode: string): depMap => {
+  /* Remove node netry */
+  let deps = deps->StringMap.remove(rmNode);
+
+  /* Remove anywhere where this node shows up in deps */
+  deps->StringMap.map(l => l |> List.filter(n => n != rmNode));
+};
+
 let rec visitOrder = (deps: depMap): list(string) =>
   if (deps->StringMap.isEmpty) {
     [];
   } else {
     /* Determine which node is next to free up */
-    let (nextNode, nextDeps) =
-      deps
-      ->StringMap.toList
-      ->Belt_List.sort(compareDepEntries)
-      ->Belt_List.headExn;
-    assert(nextDeps == []);
-
-    /* Remove node netry */
-    let deps = deps->StringMap.remove(nextNode);
-
-    /* Remove anywhere where this node shows up in deps */
-    let deps = deps->StringMap.map(l => l |> List.filter(n => n != nextNode));
+    let nextNode = availableNodes(deps)->Belt_List.headExn;
+    let deps = removeNode(deps, nextNode);
     [nextNode, ...visitOrder(deps)];
   };
 
-Js.log(Js.Array.joinWith("", visitOrder(allDeps)->Belt_List.toArray));
+/* Part 1 */
+Js.log(
+  "Build order: "
+  ++ Js.Array.joinWith("", visitOrder(nodeDeps)->Belt_List.toArray),
+);
+
+/* Part 2 */
+
+/* Return the amount of time needed to assemble the given node */
+let nodeTime = (node: string): int => {
+  assert(node->String.length == 1);
+  let c = node->String.get(0)->int_of_char;
+  let ret = c - int_of_char('A') + 1 + 60;
+  assert(ret >= 61);
+  ret;
+};
+
+type timeMap = StringMap.t(int);
+
+let nodeTimes: timeMap =
+  nodeDeps
+  ->StringMap.keysToArray
+  ->Belt_Array.map(node => (node, nodeTime(node)))
+  ->StringMap.fromArray;
+
+assert(nodeTimes->StringMap.size == nodeDeps->StringMap.size);
+assert(
+  Belt_Array.eq(
+    nodeTimes->StringMap.keysToArray, nodeDeps->StringMap.keysToArray, (a, b) =>
+    compare(a, b) == 0
+  ),
+);
+
+let getFinishedNodes = (nodeTimes: timeMap): list(string) => {
+  nodeTimes
+  ->StringMap.toList
+  ->Belt_List.keep(entry => {
+      let (_, t) = entry;
+      t == 0;
+    })
+  ->Belt_List.map(entry => {
+      let (node, _) = entry;
+      node;
+    })
+  ->Belt_List.sort(compare);
+};
+
+type workers = list(string);
+
+let numWorkers = 5;
+
+/* Take up to n elements from list l */
+let takeUpTo = (l: list('a), n: int): list('a) =>
+  if (l->Belt_List.length <= n) {
+    l;
+  } else {
+    l->Belt_List.take(n)->Belt_Option.getExn;
+  };
+
+type world = {
+  nodeDeps: depMap,
+  nodeTimes: timeMap,
+  elapsed: int,
+  finished: list(string),
+};
+
+assert([]->Belt_List.reduce(1, (_, i) => i) == 1);
+
+let rec tick = (world: world): world => {
+  let finishedNodes = world.nodeTimes->getFinishedNodes;
+  let nodeTimes =
+    world.nodeTimes->StringMap.removeMany(finishedNodes->Belt_List.toArray);
+  let nodeDeps = finishedNodes->Belt_List.reduce(world.nodeDeps, removeNode);
+
+  if (nodeTimes->StringMap.isEmpty || nodeDeps->StringMap.isEmpty) {
+    /* Finished with all the nodes! */
+    assert(nodeDeps->StringMap.isEmpty);
+    assert(nodeTimes->StringMap.isEmpty);
+    {
+      nodeDeps,
+      nodeTimes,
+      elapsed: world.elapsed,
+      finished: Belt_List.concat(world.finished, finishedNodes),
+    };
+  } else {
+    /* Need to do one tick of work */
+    let workingOn = nodeDeps->availableNodes->takeUpTo(numWorkers);
+    let ticksToAdvance =
+      workingOn
+      ->Belt_List.map(node => nodeTimes->StringMap.getExn(node))
+      ->Belt_List.sort(compare)
+      ->Belt_List.headExn;
+
+    let nodeTimes =
+      nodeTimes->StringMap.mapWithKey((node, timeLeft) =>
+        if (workingOn->Belt_List.some(node_ => node_ == node)) {
+          timeLeft - ticksToAdvance;
+        } else {
+          timeLeft;
+        }
+      );
+    tick({
+      nodeDeps,
+      nodeTimes,
+      elapsed: world.elapsed + ticksToAdvance,
+      finished: world.finished,
+    });
+  };
+};
+
+let world = tick({nodeDeps, nodeTimes, elapsed: 0, finished: []});
+print_endline("Total ticks: " ++ string_of_int(world.elapsed));
