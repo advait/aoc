@@ -178,7 +178,7 @@ let rec tick = (world: world): world => {
       finished: Belt_List.concat(world.finished, finishedNodes),
     };
   } else {
-    /* Need to do one tick of work */
+    /* How many ticks of work can we perform right now? */
     let workingOn = nodeDeps->availableNodes->takeUpTo(numWorkers);
     let ticksToAdvance =
       workingOn
