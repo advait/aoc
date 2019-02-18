@@ -1,12 +1,8 @@
 let text = Node.Fs.readFileAsUtf8Sync("../inputs/7.txt");
-let lines =
-  text |> Js.String.trim |> Js.String.split("\n") |> Belt.List.fromArray;
+let lines = text |> Js.String.trim |> Js.String.split("\n") |> Belt.List.fromArray;
 
 /* Step C must be finished before step A can begin. */
-let re =
-  Js.Re.fromString(
-    {|^Step ([A-Z]) must be finished before step ([A-Z]) can begin.$|},
-  );
+let re = Js.Re.fromString({|^Step ([A-Z]) must be finished before step ([A-Z]) can begin.$|});
 
 let unwrap = (v: Js.nullable('a)): 'a => {
   v |> Js.Nullable.toOption |> Belt.Option.getExn;
@@ -64,7 +60,7 @@ let availableNodes = (deps: depMap): list(string) => {
   deps
   ->StringMap.toList
   ->Belt_List.keep(entry => {
-      let (node, deps) = entry;
+      let (_, deps) = entry;
       deps->Belt_List.length == 0;
     })
   ->Belt_List.map(entry => {
@@ -94,10 +90,7 @@ let rec visitOrder = (deps: depMap): list(string) =>
   };
 
 /* Part 1 */
-Js.log(
-  "Build order: "
-  ++ Js.Array.joinWith("", visitOrder(nodeDeps)->Belt_List.toArray),
-);
+Js.log("Build order: " ++ Js.Array.joinWith("", visitOrder(nodeDeps)->Belt_List.toArray));
 
 /* Part 2 */
 
@@ -113,17 +106,11 @@ let nodeTime = (node: string): int => {
 type timeMap = StringMap.t(int);
 
 let nodeTimes: timeMap =
-  nodeDeps
-  ->StringMap.keysToArray
-  ->Belt_Array.map(node => (node, nodeTime(node)))
-  ->StringMap.fromArray;
+  nodeDeps->StringMap.keysToArray->Belt_Array.map(node => (node, nodeTime(node)))->StringMap.fromArray;
 
 assert(nodeTimes->StringMap.size == nodeDeps->StringMap.size);
 assert(
-  Belt_Array.eq(
-    nodeTimes->StringMap.keysToArray, nodeDeps->StringMap.keysToArray, (a, b) =>
-    compare(a, b) == 0
-  ),
+  Belt_Array.eq(nodeTimes->StringMap.keysToArray, nodeDeps->StringMap.keysToArray, (a, b) => compare(a, b) == 0),
 );
 
 let getFinishedNodes = (nodeTimes: timeMap): list(string) => {
@@ -163,20 +150,14 @@ assert([]->Belt_List.reduce(1, (_, i) => i) == 1);
 
 let rec tick = (world: world): world => {
   let finishedNodes = world.nodeTimes->getFinishedNodes;
-  let nodeTimes =
-    world.nodeTimes->StringMap.removeMany(finishedNodes->Belt_List.toArray);
+  let nodeTimes = world.nodeTimes->StringMap.removeMany(finishedNodes->Belt_List.toArray);
   let nodeDeps = finishedNodes->Belt_List.reduce(world.nodeDeps, removeNode);
 
   if (nodeTimes->StringMap.isEmpty || nodeDeps->StringMap.isEmpty) {
     /* Finished with all the nodes! */
     assert(nodeDeps->StringMap.isEmpty);
     assert(nodeTimes->StringMap.isEmpty);
-    {
-      nodeDeps,
-      nodeTimes,
-      elapsed: world.elapsed,
-      finished: Belt_List.concat(world.finished, finishedNodes),
-    };
+    {nodeDeps, nodeTimes, elapsed: world.elapsed, finished: Belt_List.concat(world.finished, finishedNodes)};
   } else {
     /* How many ticks of work can we perform right now? */
     let workingOn = nodeDeps->availableNodes->takeUpTo(numWorkers);
@@ -194,12 +175,7 @@ let rec tick = (world: world): world => {
           timeLeft;
         }
       );
-    tick({
-      nodeDeps,
-      nodeTimes,
-      elapsed: world.elapsed + ticksToAdvance,
-      finished: world.finished,
-    });
+    tick({nodeDeps, nodeTimes, elapsed: world.elapsed + ticksToAdvance, finished: world.finished});
   };
 };
 
