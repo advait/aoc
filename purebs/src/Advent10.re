@@ -53,11 +53,11 @@ let rec step = (points, n) => {
 
 let printPoints = points => {
   let (minX, maxX, minY, maxY) = boundingBox(points);
-  rangeInclusiveFloat(
+  iterInclusiveFloat(
     minY,
     maxY,
     y => {
-      rangeInclusiveFloat(minX, maxX, x =>
+      iterInclusiveFloat(minX, maxX, x =>
         if (points |> List.any(~f=p => p.x == x && p.y == y)) {
           print_string("#");
         } else {

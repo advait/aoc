@@ -20,18 +20,25 @@ let optionGetExn = o => {
   };
 };
 
-let rec rangeInclusive = (start, end_, f) =>
+let rec rangeInclusive = (start, end_) =>
   if (start > end_) {
-    ();
+    [];
   } else {
-    f(start);
-    rangeInclusive(start + 1, end_, f);
+    [start, ...rangeInclusive(start + 1, end_)];
   };
 
-let rec rangeInclusiveFloat = (start, end_, f) =>
+let rec iterInclusiveFloat = (start, end_, f) =>
   if (start > end_) {
     ();
   } else {
     f(start);
-    rangeInclusiveFloat(start +. 1., end_, f);
+    iterInclusiveFloat(start +. 1., end_, f);
   };
+
+/* Sum the items in list l */
+let rec sumList = l => {
+  switch (l) {
+  | [] => 0
+  | [head, ...tail] => head + sumList(tail)
+  };
+};
