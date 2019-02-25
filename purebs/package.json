@@ -16,6 +16,7 @@
     "bs-platform": "^4.0.18"
   },
   "dependencies": {
-    "immutable-re": "0.0.15"
+    "immutable-re": "0.0.15",
+    "tablecloth-bucklescript": "^0.0.2"
   }
 }

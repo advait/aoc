@@ -18,3 +18,8 @@ immutable-re@0.0.15:
   integrity sha1-Vqma12R5pf/T/M7BPsK4U9HrzjE=
   dependencies:
     bs-platform "^1.7.1"
+
+tablecloth-bucklescript@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/tablecloth-bucklescript/-/tablecloth-bucklescript-0.0.2.tgz#f86089cb57eca57b82a17d59ff8fa4586dfe8e69"
+  integrity sha512-iK566kOp59iViWNY5jtRdSGt1Wumu5hoZKT3HkjI2MCLfXrIpOUuR1KQvH0bHUZMdhUNNhK9IGVLZ9C608r/qg==
