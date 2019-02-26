@@ -4,7 +4,12 @@ import qualified Data.IntSet as IntSet
 import Prelude
 
 main :: IO ()
-main = interact $ show . startProcess . parseInput
+main =
+  interact $ \s ->
+    let input = parseInput s
+        part1 = sum input
+        part2 = startProcess input
+     in "Part1: " ++ (show part1) ++ "\n" ++ "Part2: " ++ (show part2) ++ "\n"
 
 -- Parse the input strings with preceding + or - values
 intOfString :: String -> Int
