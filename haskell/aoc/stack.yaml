@@ -1,0 +1,7 @@
+flags: {}
+packages:
+- .
+extra-deps:
+- hindent-5.2.7@sha256:35a1883948d2a2d9b663630d0e5c33fcb303149ac0b1f42a59f5e8fbc88b31e5
+#- QuickCheck:2.12.6.1
+resolver: lts-13.9
