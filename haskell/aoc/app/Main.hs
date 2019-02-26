@@ -5,7 +5,7 @@ import Debug.Trace
 import Prelude
 
 main :: IO ()
-main = interact $ show . myMain
+main = interact $ show . startProcess . parseInput
 
 -- Parse the input strings with preceeding + or - values
 intOfString :: String -> Int
@@ -14,17 +14,21 @@ intOfString s@(head:tail)
   | head == '+' = read tail::Int -- Need to manually parse '+'
   | otherwise = read s::Int
 
+-- Processes stdin as a list of ints
+parseInput :: String -> [Int]
+parseInput s = map intOfString stringLines where
+  stringLines = lines s
+
 -- Processes the cycle returning the first duplicate sum
-process :: Int -> [Int] -> IntSet.IntSet -> Int
-process curSum (head:tail) seen =
+process :: [Int] -> Int -> IntSet.IntSet -> Int
+process (head:tail) curSum seen =
   if IntSet.member curSum seen
   then curSum
-  else process newSum tail newSeen where
+  else process tail newSum  newSeen where
     newSeen = IntSet.insert curSum seen
     newSum = curSum + head
 
-myMain :: String -> Int
-myMain s = process 0 infiniteCycle IntSet.empty where
-  stringLines = lines s
-  intList = map intOfString stringLines
-  infiniteCycle = cycle intList
+-- Kickoff process with proper initial values
+startProcess :: [Int] -> Int
+startProcess numbers = process infiniteNumbers 0 IntSet.empty where
+  infiniteNumbers = cycle numbers
