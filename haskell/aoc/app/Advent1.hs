@@ -1,7 +1,7 @@
 module Main where
 
 import qualified Data.IntSet as IntSet
-import Prelude
+import           Prelude
 
 main :: IO ()
 main =
@@ -9,7 +9,7 @@ main =
     let input = parseInput s
         part1 = sum input
         part2 = startProcess input
-     in "Part1: " ++ (show part1) ++ "\n" ++ "Part2: " ++ (show part2) ++ "\n"
+     in "Part1: " ++ show part1 ++ "\n" ++ "Part2: " ++ show part2 ++ "\n"
 
 -- Parse the input strings with preceding + or - values
 intOfString :: String -> Int

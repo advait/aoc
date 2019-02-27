@@ -26,8 +26,8 @@ library:
   source-dirs: src
 
 executables:
-  aoc-exe:
-    main:                Main.hs
+  advent1:
+    main:                Advent1.hs
     source-dirs:         app
     ghc-options:
     - -threaded
