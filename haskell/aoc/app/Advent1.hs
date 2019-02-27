@@ -1,4 +1,4 @@
-module Main where
+module Advent1 where
 
 import qualified Data.IntSet as IntSet
 import           Prelude
