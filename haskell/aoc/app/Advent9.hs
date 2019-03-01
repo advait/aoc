@@ -4,10 +4,6 @@ import qualified Data.IntMap as IntMap
 import           Data.Maybe
 import           Deque
 
-numElves = 411
-
-maxMarble = 72059 * 100
-
 type Elf = Int
 
 type Marble = Int
@@ -17,7 +13,7 @@ type Circle = Deque Marble
 type ElfScores = IntMap.IntMap Int
 
 data Game =
-  Game Int -- Next Marble
+  Game Marble
        Circle
        ElfScores
   deriving (Show)
@@ -34,10 +30,10 @@ playSingleTurn game@(Game nextMarble _ _)
   | otherwise = playNormalTurn game
 
 -- Plays all turns to completion
-playAllTurns :: Game -> Game
-playAllTurns game@(Game marble _ _)
+playAllTurns :: Marble -> Game -> Game
+playAllTurns maxMarble game@(Game marble _ _)
   | marble > maxMarble = game
-  | otherwise = playAllTurns $ playSingleTurn game
+  | otherwise = playAllTurns maxMarble $ playSingleTurn game
 
 -- Inserts a marble into the circle, returning a new circle
 playNormalTurn :: Game -> Game
@@ -59,8 +55,16 @@ play23Turn (Game marble circle elfScores) = newGame
 -- Starting state for the game
 startingGame = Game 1 (Deque.fromList [0]) IntMap.empty
 
+numElves = 411
+
+part1MaxMarble = 72059
+
+part2MaxMarble = part1MaxMarble * 100
+
 main :: IO ()
-main = print maxScore
+main = putStrLn $ "Part 1: " ++ show part1MaxScore ++ "\nPart 2: " ++ show part2MaxScore
   where
-    (Game _ _ elfScores) = playAllTurns startingGame
-    maxScore = IntMap.foldl max 0 elfScores
+    (Game _ _ part1Scores) = playAllTurns part1MaxMarble startingGame
+    (Game _ _ part2Scores) = playAllTurns part2MaxMarble startingGame
+    part1MaxScore = IntMap.foldl max 0 part1Scores
+    part2MaxScore = IntMap.foldl max 0 part2Scores
