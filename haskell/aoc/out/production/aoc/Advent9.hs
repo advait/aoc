@@ -5,8 +5,9 @@ import           Data.Maybe
 import           Deque
 
 numElves = 411
-
 maxMarble = 72059 * 100
+--numElves = 9
+--maxMarble = 25
 
 type Elf = Int
 
@@ -37,7 +38,7 @@ playSingleTurn game@(Game nextMarble _ _)
 playAllTurns :: Game -> Game
 playAllTurns game@(Game marble _ _)
   | marble > maxMarble = game
-  | otherwise = playAllTurns $ playSingleTurn game
+  | otherwise = playAllTurns $! playSingleTurn game
 
 -- Inserts a marble into the circle, returning a new circle
 playNormalTurn :: Game -> Game
@@ -46,7 +47,7 @@ playNormalTurn (Game marble circle elfScores) = newGame
     newCircle = Deque.cons marble $ applyN 2 Deque.shiftLeft circle
     newGame = Game (marble + 1) newCircle elfScores
 
--- Plays the strange mod 23 turn that allows an elf to score points
+--
 play23Turn :: Game -> Game
 play23Turn (Game marble circle elfScores) = newGame
   where

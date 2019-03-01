@@ -7,8 +7,8 @@ maintainer:          "example@example.com"
 copyright:           "2019 Author name here"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -20,24 +20,28 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/aoc#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+  - base >= 4.7 && < 5
 
 library:
-  source-dirs: src
+  source-dirs: app
+  dependencies:
+    - containers
+    - deque
+    - QuickCheck
 
 executables:
   advent1:
     main:                Advent1.hs
     source-dirs:         app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    - -main-is Advent1
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -main-is Advent1
     dependencies:
-    - aoc
-    - containers
-    - QuickCheck
+      - containers
+      - deque
+      - QuickCheck
   advent9:
     main:                Advent9.hs
     source-dirs:         app
@@ -47,17 +51,14 @@ executables:
       - -with-rtsopts=-N
       - -main-is Advent9
     dependencies:
-      - aoc
       - containers
+      - deque
       - QuickCheck
 
 tests:
   aoc-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    defaults: hspec/hspec@master
     dependencies:
-    - aoc
+      - aoc
+      - containers
+      - deque
