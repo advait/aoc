@@ -25,7 +25,7 @@ parseInput :: String -> [Matcher]
 parseInput s = map genMatcher templates
   where
     allLines = filter (/= "") $ lines s
-    templates = drop 1 allLines -- Drop the two first lines as they are explanatory
+    templates = drop 1 allLines -- Drop the two first as it is explanatory
 
 -- Apply a List of matchers, returning the substitution
 applyMatchers :: [Matcher] -> String -> Char
@@ -43,6 +43,7 @@ mapPlants n fn input@(_:tail) =
   let matchableInput = take n input
       transformedPlant = fn matchableInput
    in transformedPlant : mapPlants n fn tail
+mapPlants _ _ _ = error "Input was too short"
 
 -- Returns the last n items from a List
 lastN :: Int -> [a] -> [a]
@@ -84,6 +85,7 @@ potCount (z, plant:tail)
   | plant == '#' = currentPotNumber + potCount (z - 1, tail)
   where
     currentPotNumber = negate z
+potCount (_, _) = error "Invalid plant symbol"
 
 startingInput = "##.###.......#..#.##..#####...#...#######....##.##.##.##..#.#.##########...##.##..##.##...####..####"
 
