@@ -1,6 +1,6 @@
-module Advent10Spec where
+module Advent12Spec where
 
-import           Advent10
+import           Advent12
 import           Data.Foldable
 import qualified Data.IntMap   as IntMap
 import           Data.List

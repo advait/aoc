@@ -51,15 +51,15 @@ executables:
       - containers
       - deque
       - QuickCheck
-  advent10:
-    main:                Advent10.hs
+  advent12:
+    main:                Advent12.hs
     source-dirs:         app
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
       - -fwarn-incomplete-patterns
-      - -main-is Advent10
+      - -main-is Advent12
     dependencies:
       - containers
       - deque
