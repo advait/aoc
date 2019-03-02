@@ -20,12 +20,13 @@ type SeenStates = Map.Map String (GenID, Int)
 -- Given an input string, generate a matcher
 genMatcher :: String -> Matcher
 genMatcher template input =
-  let firstSpaceIndex = Maybe.fromJust $ List.elemIndex ' ' template
-      prefix = take firstSpaceIndex template
-      output = last template
-   in if prefix == input
-        then Just output
-        else Nothing
+  if prefix == input
+    then Just output
+    else Nothing
+  where
+    firstSpaceIndex = Maybe.fromJust $ List.elemIndex ' ' template
+    prefix = take firstSpaceIndex template
+    output = last template
 
 -- Given a puzzle input, return a list of matchers
 parseInput :: String -> [Matcher]
@@ -42,26 +43,27 @@ applyMatchers (m:tail) s =
     Just c -> c
     _      -> applyMatchers tail s
 
--- Iterate over plants in n-unit chunks, transforming hunks with matchers
+-- Iterate over plants in n-unit chunks, transforming chunks with matchers
 mapPlants :: Int -> (String -> Char) -> String -> String
 mapPlants n _ input
   | length input < n = input
-mapPlants n fn input@(_:tail) =
-  let matchableInput = take n input
-      transformedPlant = fn matchableInput
-   in transformedPlant : mapPlants n fn tail
+mapPlants n fn input@(_:tail) = transformedPlant : rec tail
+  where
+    rec = mapPlants n fn
+    matchableInput = take n input
+    transformedPlant = fn matchableInput
 mapPlants _ _ _ = error "Input was too short"
 
 -- Returns the last n items from a List
 lastN :: Int -> [a] -> [a]
 lastN n xs = drop (length xs - n) xs
 
--- Pads the plants to make sure there's enough empty pots before the next round.
--- Potentially updates the zero index point if we have to pad left.
+-- Pads the plants to make sure there's exactly enough empty pots before the next round.
+-- Potentially updates the zero index point if we have to pad/unpad left.
 pad :: Int -> Plants -> Plants
-pad n (z, s) = unpadLeft . unpadRight $ (n + z, padding ++ s ++ padding)
+pad n (z, s) = unpadLeft . unpadRight $ (n + z, maxPadding ++ s ++ maxPadding)
   where
-    padding = replicate n '.'
+    maxPadding = replicate n '.'
     unpadLeft (z, s)
       | not $ all (== '.') (take (n + 1) s) = (z, s)
     unpadLeft (z, h:tail) = unpadLeft (z - 1, tail)
