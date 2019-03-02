@@ -39,14 +39,16 @@ playAllTurns maxMarble game@(Game marble _ _)
 playNormalTurn :: Game -> Game
 playNormalTurn (Game marble circle elfScores) = newGame
   where
-    newCircle = Deque.cons marble $ applyN 2 Deque.shiftLeft circle
+    shiftedCircle = applyN 2 Deque.shiftLeft circle
+    newCircle = Deque.cons marble shiftedCircle
     newGame = Game (marble + 1) newCircle elfScores
 
 -- Plays the strange mod 23 turn that allows an elf to score points
 play23Turn :: Game -> Game
 play23Turn (Game marble circle elfScores) = newGame
   where
-    (removedMarble, newCircle) = Data.Maybe.fromJust . Deque.uncons $ applyN 7 Deque.shiftRight circle
+    shiftedCircle = applyN 7 Deque.shiftRight circle
+    (removedMarble, newCircle) = Data.Maybe.fromJust . Deque.uncons $ shiftedCircle
     elfID = marble `mod` numElves
     elfAddedPoints = marble + removedMarble
     newElfScores = IntMap.insertWith (+) elfID elfAddedPoints elfScores

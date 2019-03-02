@@ -32,6 +32,7 @@ executables:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
+      - -fwarn-incomplete-patterns
       - -main-is Advent1
     dependencies:
       - containers
@@ -44,6 +45,7 @@ executables:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
+      - -fwarn-incomplete-patterns
       - -main-is Advent9
     dependencies:
       - containers
