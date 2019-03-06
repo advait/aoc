@@ -61,6 +61,18 @@ executables:
     dependencies:
       - containers
       - deque
+  advent13:
+    main:                Advent13.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -fwarn-incomplete-patterns
+      - -main-is Advent13
+    dependencies:
+      - containers
+      - deque
   advent14:
     main:                Advent14.hs
     source-dirs:         app
