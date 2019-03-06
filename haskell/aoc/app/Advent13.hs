@@ -1,9 +1,9 @@
 module Advent13 where
 
-import qualified Data.List   as List
-import qualified Data.Map    as Map
-import qualified Data.Maybe  as Maybe
-import qualified Data.Set    as Set
+import qualified Data.List  as List
+import qualified Data.Map   as Map
+import qualified Data.Maybe as Maybe
+import qualified Data.Set   as Set
 
 -- (X, Y) Coordinates
 type Pos = (Int, Int)
@@ -127,10 +127,8 @@ isCollis = tempFn Set.empty
     tempFn :: Set.Set Pos -> [Car] -> Maybe Pos
     tempFn _ [] = Nothing
     tempFn seenPoss (Car pos _ _:tail)
-      | isthere = Just pos
+      | Set.member pos seenPoss = Just pos
       | otherwise = tempFn (Set.insert pos seenPoss) tail
-      where
-        isthere = Set.member pos seenPoss
 
 -- Continually step until we have a collision, returning the position
 stepUntilCollision :: [Car] -> [Car] -> TrackMap -> Pos
