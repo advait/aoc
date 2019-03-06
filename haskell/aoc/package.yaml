@@ -37,7 +37,6 @@ executables:
     dependencies:
       - containers
       - deque
-      - QuickCheck
   advent9:
     main:                Advent9.hs
     source-dirs:         app
@@ -50,7 +49,6 @@ executables:
     dependencies:
       - containers
       - deque
-      - QuickCheck
   advent12:
     main:                Advent12.hs
     source-dirs:         app
@@ -63,7 +61,19 @@ executables:
     dependencies:
       - containers
       - deque
-      - QuickCheck
+  advent14:
+    main:                Advent14.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -fwarn-incomplete-patterns
+      - -main-is Advent14
+    dependencies:
+      - array
+      - containers
+      - deque
 
 tests:
   aoc-test:
