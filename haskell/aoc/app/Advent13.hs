@@ -1,9 +1,10 @@
 module Advent13 where
 
-import qualified Data.List  as List
-import qualified Data.Map   as Map
-import qualified Data.Maybe as Maybe
-import qualified Data.Set   as Set
+import qualified Data.List   as List
+import qualified Data.Map    as Map
+import qualified Data.Maybe  as Maybe
+import qualified Data.Set    as Set
+import qualified System.IO   as IO
 
 -- (X, Y) Coordinates
 type Pos = (Int, Int)
@@ -121,8 +122,8 @@ genTracks :: String -> TrackMap
 genTracks s = Map.fromList $ mapWithPos (\pos c -> (pos, readTrack c)) s
 
 -- Returns whether there is a collision amongst the cars
-isCollis :: [Car] -> Maybe Pos
-isCollis = tempFn Set.empty
+isCollision :: [Car] -> Maybe Pos
+isCollision = tempFn Set.empty
   where
     tempFn :: Set.Set Pos -> [Car] -> Maybe Pos
     tempFn _ [] = Nothing
@@ -133,22 +134,37 @@ isCollis = tempFn Set.empty
 -- Continually step until we have a collision, returning the position
 stepUntilCollision :: [Car] -> [Car] -> TrackMap -> Pos
 stepUntilCollision acc cars _
-  | Maybe.isJust collis = Maybe.fromJust collis
+  | Maybe.isJust collisionPos = Maybe.fromJust collisionPos
   where
     allCars = acc ++ cars
-    collis = isCollis allCars
+    collisionPos = isCollision allCars
 stepUntilCollision acc [] tracks = stepUntilCollision [] (List.sort acc) tracks
 stepUntilCollision acc (car@(Car pos _ _):tail) tracks = stepUntilCollision (nc : acc) tail tracks
   where
     track = tracks Map.! pos
     nc = nextCar car track
 
-doMain :: String -> String
-doMain stdin = show collisPos ++ "\n"
+-- Continually step until we only one car left, returning its position
+stepUntilFinalCar :: [Car] -> [Car] -> TrackMap -> Pos
+stepUntilFinalCar [] [car@(Car pos _ _)] _ = pos -- Only one car left, return its pos
+stepUntilFinalCar acc cars tracks
+  | Maybe.isJust collisionPos = stepUntilFinalCar (filterCars acc) (filterCars cars) tracks
   where
-    tracks = genTracks stdin
-    cars = genCars stdin
-    collisPos = stepUntilCollision [] cars tracks
+    allCars = acc ++ cars
+    collisionPos = isCollision allCars
+    filterCars = filter (\(Car pos _ _) -> pos /= Maybe.fromJust collisionPos)
+stepUntilFinalCar acc [] tracks = stepUntilFinalCar [] (List.sort acc) tracks
+stepUntilFinalCar acc (car@(Car pos _ _):tail) tracks = stepUntilFinalCar (nc : acc) tail tracks
+  where
+    track = tracks Map.! pos
+    nc@(Car nextPos _ _) = nextCar car track
 
 main :: IO ()
-main = interact doMain
+main = do
+  stdin <- getContents
+  let tracks = genTracks stdin
+  let cars = genCars stdin
+  let firstCollisPos = stepUntilCollision [] cars tracks
+  let finalCarPos = stepUntilFinalCar [] cars tracks
+  putStrLn $ "Part 1: " ++ show firstCollisPos
+  putStrLn $ "Part 2: " ++ show finalCarPos
