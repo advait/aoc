@@ -3,3 +3,4 @@
 .stack-work/
 aoc.cabal
 *~
+out/

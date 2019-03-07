@@ -2,6 +2,7 @@ module Advent15 where
 
 -- Represents an abstract node for pathfinding algorithms
 class Ord a => Node a where
+  -- Returns neighbors in *sorted* order
   neighbors :: a -> [a]
 
 -- (X, Y) cartesian coordinates
@@ -14,6 +15,16 @@ instance Ord Pos where
 
 instance Show Pos where
   show (Pos x y) = show (x, y)
+
+-- Alternative compare function for [Node]/Paths that prefers shorter paths.
+comparePath :: (Node a) => [a] -> [a] -> Ordering
+comparePath [] [] = EQ
+comparePath a b
+  | lenA < lenB = LT
+  | lenA > lenB = GT
+  | otherwise = compare a b
+  where lenA = length a
+        lenB = length b
 
 main :: IO ()
 main = undefined
