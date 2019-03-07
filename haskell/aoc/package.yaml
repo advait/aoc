@@ -86,6 +86,19 @@ executables:
       - array
       - containers
       - deque
+  advent15:
+    main:                Advent15.hs
+    source-dirs:         app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -fwarn-incomplete-patterns
+      - -main-is Advent15
+    dependencies:
+      - array
+      - containers
+      - deque
 
 tests:
   aoc-test:
