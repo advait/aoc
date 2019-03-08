@@ -45,7 +45,7 @@ spec = do
       shortestPath (Pos 0 0) (Pos 1 (-1)) `shouldBe` Just [Pos 0 0, Pos 0 (-1), Pos 1 (-1)]
       shortestPath (Pos 0 0) (Pos (-1) (-1)) `shouldBe` Just [Pos 0 0, Pos 0 (-1), Pos (-1) (-1)]
     it "Returns a path of length (n+1) if dst is n units away from the origin" $ do
-      let n = 10
+      let n = 100
       let path = map (Pos 0) [0 .. n]
       shortestPath (Pos 0 0) (Pos 0 n) `shouldBe` Just path
 
