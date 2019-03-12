@@ -10,17 +10,6 @@ class (Ord a, Show a) =>
   where
   neighbors :: a -> [a] -- Returns neighbors in *sorted* order
 
--- Alternative compare function for [Node]/Paths that prefers shorter paths
--- before going into a node-by-node comparison if paths are equal length.
-comparePath :: (Node a) => [a] -> [a] -> Ordering
-comparePath a b
-  | lenA < lenB = LT
-  | lenA > lenB = GT
-  | otherwise = compare a b
-  where
-    lenA = length a
-    lenB = length b
-
 -- Returns the shortest path from the first node to the second or Nothing
 -- if we have exhaustively determined that no such path exists.
 shortestPath :: (Node a) => a -> a -> Maybe [a]

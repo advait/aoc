@@ -1,12 +1,11 @@
 module PathfindingSpec where
 
-import           Pathfinding
 import           Data.List
 import qualified Data.Maybe  as Maybe
 import qualified Data.Set    as Set
 import qualified Debug.Trace as Trace
+import           Pathfinding
 import           Test.Hspec
-
 
 spec :: Spec
 spec = do
