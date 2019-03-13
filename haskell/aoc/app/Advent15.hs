@@ -28,14 +28,12 @@ data Piece
   | Elf Int
   deriving (Show, Eq)
 
-startingHealth = 200
-
 -- Char to Piece
-readPiece :: Char -> Maybe Piece
-readPiece '#' = Just Wall
-readPiece 'G' = Just $ Goblin startingHealth
-readPiece 'E' = Just $ Elf startingHealth
-readPiece _   = Nothing
+readPiece :: Int -> Char -> Maybe Piece
+readPiece _ '#' = Just Wall
+readPiece health 'G' = Just $ Goblin health
+readPiece health 'E' = Just $ Elf health
+readPiece _ _   = Nothing
 
 -- The state of the world where Pieces exist at Positions
 type World = Map.Map Pos Piece
@@ -69,20 +67,16 @@ getHealth :: WorldPos -> Int
 getHealth wp =
   case getPiece wp of
     Just (Goblin h) -> h
-    Just (Elf h) -> h
-    _            -> 0
+    Just (Elf h)    -> h
+    _               -> 0
 
 -- Updates the health of the given piece
 updateHealth :: Int -> WorldPos -> Piece
 updateHealth h wp =
   case getPiece wp of
     Just (Goblin _) -> Goblin h
-    Just (Elf _) -> Elf h
-    _ -> error "Cannot set health for non-player piece"
-
--- Returns whether the given WorldPos is dead
-isDead :: WorldPos -> Bool
-isDead = (<= 0) . getHealth
+    Just (Elf _)    -> Elf h
+    _               -> error "Cannot set health for non-player piece"
 
 -- Compares two WorldPoss in order of health
 compareByHealth :: WorldPos -> WorldPos -> Ordering
@@ -110,16 +104,16 @@ emptyNeighbors = filter (Maybe.isNothing . getPiece) . allNeighbors
 instance Node WorldPos where
   neighbors = emptyNeighbors
 
+-- Returns whether the two pieces are enemies
+isEnemy :: WorldPos -> WorldPos -> Bool
+isEnemy wp1 wp2
+  | isGoblin wp1 && isElf wp2 = True
+  | isElf wp1 && isGoblin wp2 = True
+  | otherwise = False
+
 -- Returns adjacent neighbors that are enemies
 enemyNeighbors :: WorldPos -> [WorldPos]
-enemyNeighbors wp
-  | isGoblin wp = filter isElf $ allNeighbors wp
-  | isElf wp = filter isGoblin $ allNeighbors wp
-  | otherwise = []
-
--- Returns the weakest neighbor if it exists
-weakestNeighbor :: WorldPos -> Maybe WorldPos
-weakestNeighbor = Maybe.listToMaybe . enemyNeighbors
+enemyNeighbors wp = filter (isEnemy wp) $ allNeighbors wp
 
 -- Alternative compare function for [Node]/Paths that prefers shorter paths
 -- before going into a node-by-node comparison if paths are equal length.
@@ -132,26 +126,59 @@ comparePath a b
     lenA = length a
     lenB = length b
 
--- Performs an attack turn, reducing the hitpoints of the enemy, removing it if it dies.
+-- Performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
 attack :: WorldPos -> World
 attack wp@(WorldPos world pos)
   | newHealth <= 0 = Map.delete pos world
   | otherwise = Map.insert pos newPiece world
   where
-    enemy = Maybe.fromJust $ weakestNeighbor wp
-    newHealth = getHealth enemy - 3
-    newPiece = updateHealth newHealth enemy
+    weakestEnemy = minimumBy compareByHealth $ enemyNeighbors wp
+    newHealth = getHealth weakestEnemy - attackPower
+    newPiece = updateHealth newHealth weakestEnemy
+
+-- If possible to move, performs a move turn, moving towards the nearest enemy
+-- in reading order.
+move :: WorldPos -> World
+move wp@(WorldPos world pos) = newWorld
+  where
+    piece = Maybe.fromJust $ getPiece wp
+    wps = map (WorldPos world) $ Map.keys world
+    enemies = filter (isEnemy wp) wps
+    preferredPath = Maybe.listToMaybe . sortBy comparePath . Maybe.catMaybes $ map (shortestPath wp) enemies
+    newWorld =
+      case preferredPath of
+        Nothing -> world -- No move opportunities, this is a noop
+        Just (WorldPos _ nextPos:_) -> Map.insert nextPos piece . Map.delete pos $ world
+        _ -> error "Invalid empty path: [[]]"
 
 -- Play a single turn for the piece at the given WorldPos, returning a new World
 -- as a result of the move.
-play :: WorldPos -> World
-play wp = undefined
+play :: World -> Pos -> World
+play world pos
+  | not (isGoblin wp || isElf wp) = world -- Inanimate, noop
+  | not . null $ enemyNeighbors wp = attack wp
+  | otherwise = move wp
+  where
+    wp = WorldPos world pos
 
--- Given the state of the world, an accumulator for pieces that have already played,
--- and a list of pieces that have yet to play, make moves for all pieces, returning
--- the final world.
-playRound :: World -> [Pos] -> [Pos] -> World
-playRound w acc pieces = undefined
+-- Steps through all pieces in reading order, performs moves, and returns the state
+-- of the world after one full found.
+playRound :: World -> World
+playRound world = foldl play world allPos
+  where
+    allPos = sort $ Map.keys world
+
+-- Steps through all rounds until all Elves are dead, returning the number of rounds played.
+playAllRounds :: World -> Int
+playAllRounds world
+  | allElvesDead = 0
+  | otherwise = 1 + playAllRounds (playRound world)
+  where
+    allElvesDead = all (not . isElf) . map (WorldPos world) . Map.keys $ world
+
+attackPower = 3
+
+startingHealth = 200
 
 main :: IO ()
 main = undefined
