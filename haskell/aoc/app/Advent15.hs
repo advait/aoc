@@ -64,6 +64,30 @@ isElf wp =
     Just (Elf _) -> True
     _            -> False
 
+-- Returns the health of an elf or a goblin
+getHealth :: WorldPos -> Int
+getHealth wp =
+  case getPiece wp of
+    Just (Goblin h) -> h
+    Just (Elf h) -> h
+    _            -> 0
+
+-- Updates the health of the given piece
+updateHealth :: Int -> WorldPos -> Piece
+updateHealth h wp =
+  case getPiece wp of
+    Just (Goblin _) -> Goblin h
+    Just (Elf _) -> Elf h
+    _ -> error "Cannot set health for non-player piece"
+
+-- Returns whether the given WorldPos is dead
+isDead :: WorldPos -> Bool
+isDead = (<= 0) . getHealth
+
+-- Compares two WorldPoss in order of health
+compareByHealth :: WorldPos -> WorldPos -> Ordering
+compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
+
 -- Prints the pos + piece at this WorldPos
 instance Show WorldPos where
   show wp@(WorldPos world pos) = show pos ++ ": " ++ show (getPiece wp)
@@ -82,6 +106,10 @@ allNeighbors (WorldPos world (Pos x y)) = map (WorldPos world) posNeighbors
 emptyNeighbors :: WorldPos -> [WorldPos]
 emptyNeighbors = filter (Maybe.isNothing . getPiece) . allNeighbors
 
+-- WorldPos is an instance of Node for pathfinding, but only finds paths through empty tiles.
+instance Node WorldPos where
+  neighbors = emptyNeighbors
+
 -- Returns adjacent neighbors that are enemies
 enemyNeighbors :: WorldPos -> [WorldPos]
 enemyNeighbors wp
@@ -89,9 +117,9 @@ enemyNeighbors wp
   | isElf wp = filter isGoblin $ allNeighbors wp
   | otherwise = []
 
--- WorldPos is an instance of Node for pathfinding, but only finds paths through empty tiles.
-instance Node WorldPos where
-  neighbors = emptyNeighbors
+-- Returns the weakest neighbor if it exists
+weakestNeighbor :: WorldPos -> Maybe WorldPos
+weakestNeighbor = Maybe.listToMaybe . enemyNeighbors
 
 -- Alternative compare function for [Node]/Paths that prefers shorter paths
 -- before going into a node-by-node comparison if paths are equal length.
@@ -103,6 +131,27 @@ comparePath a b
   where
     lenA = length a
     lenB = length b
+
+-- Performs an attack turn, reducing the hitpoints of the enemy, removing it if it dies.
+attack :: WorldPos -> World
+attack wp@(WorldPos world pos)
+  | newHealth <= 0 = Map.delete pos world
+  | otherwise = Map.insert pos newPiece world
+  where
+    enemy = Maybe.fromJust $ weakestNeighbor wp
+    newHealth = getHealth enemy - 3
+    newPiece = updateHealth newHealth enemy
+
+-- Play a single turn for the piece at the given WorldPos, returning a new World
+-- as a result of the move.
+play :: WorldPos -> World
+play wp = undefined
+
+-- Given the state of the world, an accumulator for pieces that have already played,
+-- and a list of pieces that have yet to play, make moves for all pieces, returning
+-- the final world.
+playRound :: World -> [Pos] -> [Pos] -> World
+playRound w acc pieces = undefined
 
 main :: IO ()
 main = undefined
