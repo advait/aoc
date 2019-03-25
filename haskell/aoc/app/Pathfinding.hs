@@ -13,19 +13,20 @@ class (Ord a, Show a) =>
 -- Returns the shortest path from the first node to the second or Nothing
 -- if we have exhaustively determined that no such path exists.
 shortestPath :: (Node a) => a -> a -> Maybe [a]
-shortestPath src dst = searchPathQueue dst startSeen startQueue
+shortestPath src dst = shortestPathBool src (\n -> dst == n)
+
+shortestPathBool :: (Node a) => a -> (a -> Bool) -> Maybe [a]
+shortestPathBool src dstPred = processQueue startSeen startQueue
   where
-    startSeen = Set.fromList [src] -- We keep track of which nodes we've already added to the queue
-    startPath = [src] -- We greedily build up a Path from the src to the dst, node-by-node
-    startQueue = [startPath] -- We work from a queue of Paths
-    searchPathQueue :: (Node a) => a -> Set.Set a -> [[a]] -> Maybe [a]
-    searchPathQueue _ _ [] = Nothing -- No more paths left in the queue, exhausted search space
-    searchPathQueue dst seen (curPath:queue)
-      | curNode == dst = Just curPath -- Reached our destination using curPath
-      | otherwise = searchPathQueue dst newSeen newQueue
+    startSeen = Set.fromList [src]
+    startQueue = [[src]]
+    processQueue _ [] = Nothing
+    processQueue seen (curPath:remainingPaths)
+      | dstPred curNode = Just curPath
+      | otherwise = processQueue newSeen newQueue
       where
         curNode = last curPath
         elligibleNeighbors = filter (`Set.notMember` seen) $ neighbors curNode
         newPaths = map (\n -> curPath ++ [n]) elligibleNeighbors
-        newQueue = queue ++ newPaths
+        newQueue = remainingPaths ++ newPaths
         newSeen = Set.union seen $ Set.fromList elligibleNeighbors

@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Advent15 where
 
 import           Data.List
@@ -6,6 +8,7 @@ import qualified Data.Maybe  as Maybe
 import qualified Data.Set    as Set
 import qualified Debug.Trace as Trace
 import           Pathfinding
+import qualified System.IO   as IO
 
 -- (X, Y) cartesian coordinates
 data Pos =
@@ -21,6 +24,10 @@ instance Ord Pos where
 instance Show Pos where
   show (Pos x y) = show (x, y)
 
+data Race
+  = RGoblin
+  | RElf
+
 -- Represents a non-empty thing in the world
 data Piece
   = Wall
@@ -30,13 +37,23 @@ data Piece
 
 -- Char to Piece
 readPiece :: Int -> Char -> Maybe Piece
-readPiece _ '#' = Just Wall
+readPiece _ '#'      = Just Wall
 readPiece health 'G' = Just $ Goblin health
 readPiece health 'E' = Just $ Elf health
-readPiece _ _   = Nothing
+readPiece _ '.'      = Nothing
+readPiece _ c        = error $ "Invalid piece: " ++ [c]
 
 -- The state of the world where Pieces exist at Positions
 type World = Map.Map Pos Piece
+
+-- Parse puzzle input, returning a World
+readWorld :: String -> World
+readWorld s = Map.fromList pieces
+  where
+    zipWithIndex = zip [0 ..]
+    mapLine (y, line) = map (\(x, c) -> (Pos x y, readPiece startingHealth c)) (zipWithIndex line)
+    maybePieces = concatMap mapLine . zipWithIndex $ lines s
+    pieces = map (\(pos, p) -> (pos, Maybe.fromJust p)) $ filter (\(_, p) -> Maybe.isJust p) maybePieces
 
 -- A specific position in the world, potentially containing a piece
 data WorldPos =
@@ -78,10 +95,6 @@ updateHealth h wp =
     Just (Elf _)    -> Elf h
     _               -> error "Cannot set health for non-player piece"
 
--- Compares two WorldPoss in order of health
-compareByHealth :: WorldPos -> WorldPos -> Ordering
-compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
-
 -- Prints the pos + piece at this WorldPos
 instance Show WorldPos where
   show wp@(WorldPos world pos) = show pos ++ ": " ++ show (getPiece wp)
@@ -96,13 +109,11 @@ allNeighbors (WorldPos world (Pos x y)) = map (WorldPos world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
--- Returns adjacent neighbors that don't have pieces
-emptyNeighbors :: WorldPos -> [WorldPos]
-emptyNeighbors = filter (Maybe.isNothing . getPiece) . allNeighbors
-
--- WorldPos is an instance of Node for pathfinding, but only finds paths through empty tiles.
-instance Node WorldPos where
-  neighbors = emptyNeighbors
+-- WorldPos is an instance of Node for pathfinding, but only finds paths through empty tiles or enemies.
+instance Node (WorldPos, WorldPos) where
+  neighbors (wp, src) = map (\p -> (p, src)) . filter enemyOrEmpty . allNeighbors $ wp
+    where
+      enemyOrEmpty wp = isEnemy src wp || (Maybe.isNothing . getPiece $ wp)
 
 -- Returns whether the two pieces are enemies
 isEnemy :: WorldPos -> WorldPos -> Bool
@@ -132,6 +143,7 @@ attack wp@(WorldPos world pos)
   | newHealth <= 0 = Map.delete pos world
   | otherwise = Map.insert pos newPiece world
   where
+    compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
     weakestEnemy = minimumBy compareByHealth $ enemyNeighbors wp
     newHealth = getHealth weakestEnemy - attackPower
     newPiece = updateHealth newHealth weakestEnemy
@@ -139,27 +151,31 @@ attack wp@(WorldPos world pos)
 -- If possible to move, performs a move turn, moving towards the nearest enemy
 -- in reading order.
 move :: WorldPos -> World
-move wp@(WorldPos world pos) = newWorld
+move wp@(WorldPos world pos)
+  | Trace.trace ("Moving to " ++ show preferredNextPos) False = undefined
+  | otherwise = newWorld
   where
     piece = Maybe.fromJust $ getPiece wp
     wps = map (WorldPos world) $ Map.keys world
     enemies = filter (isEnemy wp) wps
-    preferredPath = Maybe.listToMaybe . sortBy comparePath . Maybe.catMaybes $ map (shortestPath wp) enemies
+    preferredPath = map fst <$> shortestPathBool (wp, wp) (\(wp', _) -> isEnemy wp wp')
+    preferredNextPos = (!! 1) <$> preferredPath
     newWorld =
-      case preferredPath of
+      case preferredNextPos of
         Nothing -> world -- No move opportunities, this is a noop
-        Just (WorldPos _ nextPos:_) -> Map.insert nextPos piece . Map.delete pos $ world
-        _ -> error "Invalid empty path: [[]]"
+        Just (WorldPos _ nextPos) -> Map.insert nextPos piece . Map.delete pos $ world
 
 -- Play a single turn for the piece at the given WorldPos, returning a new World
 -- as a result of the move.
 play :: World -> Pos -> World
 play world pos
   | not (isGoblin wp || isElf wp) = world -- Inanimate, noop
-  | not . null $ enemyNeighbors wp = attack wp
+  | Trace.trace ("Piece: " ++ show wp ++ " (Attacking: " ++ show shouldAttack ++ ")") False = undefined
+  | shouldAttack = attack wp
   | otherwise = move wp
   where
     wp = WorldPos world pos
+    shouldAttack = not . null $ enemyNeighbors wp
 
 -- Steps through all pieces in reading order, performs moves, and returns the state
 -- of the world after one full found.
@@ -169,10 +185,11 @@ playRound world = foldl play world allPos
     allPos = sort $ Map.keys world
 
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
-playAllRounds :: World -> Int
-playAllRounds world
-  | allElvesDead = 0
-  | otherwise = 1 + playAllRounds (playRound world)
+playAllRounds :: Int -> World -> (Int, World)
+playAllRounds round world
+  | Trace.trace ("Round: " ++ show round) False = undefined
+  | allElvesDead = (round, world)
+  | otherwise = playAllRounds (round + 1) (playRound world)
   where
     allElvesDead = all (not . isElf) . map (WorldPos world) . Map.keys $ world
 
@@ -181,4 +198,9 @@ attackPower = 3
 startingHealth = 200
 
 main :: IO ()
-main = undefined
+main = do
+  input <- getContents
+  let startWorld = readWorld input
+  let (rounds, finalWorld) = playAllRounds 0 startWorld
+  let totalHealth = sum . map (getHealth . WorldPos finalWorld) . Map.keys $ finalWorld
+  print (rounds * totalHealth)
