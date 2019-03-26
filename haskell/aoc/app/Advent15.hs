@@ -1,14 +1,15 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Advent15 where
 
 import           Data.List
-import qualified Data.Map    as Map
-import qualified Data.Maybe  as Maybe
-import qualified Data.Set    as Set
-import qualified Debug.Trace as Trace
+import qualified Data.Map             as Map
+import qualified Data.Maybe           as Maybe
+import qualified Data.Set             as Set
+import qualified Debug.Trace          as Trace
 import           Pathfinding
-import qualified System.IO   as IO
+import qualified System.IO            as IO
 
 -- (X, Y) cartesian coordinates
 data Pos =
@@ -25,21 +26,22 @@ instance Show Pos where
   show (Pos x y) = show (x, y)
 
 data Race
-  = RGoblin
-  | RElf
+  = Goblin
+  | Elf
+  deriving (Show, Eq, Ord)
 
 -- Represents a non-empty thing in the world
 data Piece
   = Wall
-  | Goblin Int
-  | Elf Int
+  | Humanoid Race
+             Int
   deriving (Show, Eq)
 
 -- Char to Piece
 readPiece :: Int -> Char -> Maybe Piece
 readPiece _ '#'      = Just Wall
-readPiece health 'G' = Just $ Goblin health
-readPiece health 'E' = Just $ Elf health
+readPiece health 'G' = Just $ Humanoid Goblin health
+readPiece health 'E' = Just $ Humanoid Elf health
 readPiece _ '.'      = Nothing
 readPiece _ c        = error $ "Invalid piece: " ++ [c]
 
@@ -65,35 +67,34 @@ data WorldPos =
 getPiece :: WorldPos -> Maybe Piece
 getPiece (WorldPos world pos) = Map.lookup pos world
 
+-- Returns the race of the humanoid
+getRace :: WorldPos -> Maybe Race
+getRace wp =
+  case getPiece wp of
+    Just (Humanoid r _) -> Just r
+    _                   -> Nothing
+
 -- Returns whether there is a goblin at WorldPos
 isGoblin :: WorldPos -> Bool
-isGoblin wp =
-  case getPiece wp of
-    Just (Goblin _) -> True
-    _               -> False
+isGoblin wp = getRace wp == Just Goblin
 
 -- Returns whether there is an elf at WorldPos
 isElf :: WorldPos -> Bool
-isElf wp =
-  case getPiece wp of
-    Just (Elf _) -> True
-    _            -> False
+isElf wp = getRace wp == Just Elf
 
 -- Returns the health of an elf or a goblin
 getHealth :: WorldPos -> Int
 getHealth wp =
   case getPiece wp of
-    Just (Goblin h) -> h
-    Just (Elf h)    -> h
-    _               -> 0
+    Just (Humanoid _ h) -> h
+    _                   -> 0
 
 -- Updates the health of the given piece
 updateHealth :: Int -> WorldPos -> Piece
 updateHealth h wp =
   case getPiece wp of
-    Just (Goblin _) -> Goblin h
-    Just (Elf _)    -> Elf h
-    _               -> error "Cannot set health for non-player piece"
+    Just (Humanoid r _) -> Humanoid r h
+    _                   -> error "Cannot set health for non-player piece"
 
 -- Prints the pos + piece at this WorldPos
 instance Show WorldPos where
@@ -109,22 +110,30 @@ allNeighbors (WorldPos world (Pos x y)) = map (WorldPos world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
--- WorldPos is an instance of Node for pathfinding, but only finds paths through empty tiles or enemies.
-instance Node (WorldPos, WorldPos) where
-  neighbors (wp, src) = map (\p -> (p, src)) . filter enemyOrEmpty . allNeighbors $ wp
+-- Represents a view of the world from the perspective of the given race.
+-- WorldPosContext is an instance of Node for pathfinding, but only finds paths through empty tiles or enemies.
+type WorldPosContext = (WorldPos, Race)
+
+instance Node WorldPosContext where
+  neighbors (wp, startRace) = map (, startRace) . filter enemyOrEmpty . allNeighbors $ wp
     where
-      enemyOrEmpty wp = isEnemy src wp || (Maybe.isNothing . getPiece $ wp)
+      enemyOrEmpty wp = isEnemy (Just startRace) (getRace wp) || Maybe.isNothing (getPiece wp)
 
 -- Returns whether the two pieces are enemies
-isEnemy :: WorldPos -> WorldPos -> Bool
-isEnemy wp1 wp2
+isEnemy :: Maybe Race -> Maybe Race -> Bool
+isEnemy (Just Goblin) (Just Elf) = True
+isEnemy (Just Elf) (Just Goblin) = True
+isEnemy _ _                      = False
+
+isEnemyWP :: WorldPos -> WorldPos -> Bool
+isEnemyWP wp1 wp2
   | isGoblin wp1 && isElf wp2 = True
   | isElf wp1 && isGoblin wp2 = True
   | otherwise = False
 
 -- Returns adjacent neighbors that are enemies
 enemyNeighbors :: WorldPos -> [WorldPos]
-enemyNeighbors wp = filter (isEnemy wp) $ allNeighbors wp
+enemyNeighbors wp = filter (isEnemy (getRace wp) . getRace) $ allNeighbors wp
 
 -- Alternative compare function for [Node]/Paths that prefers shorter paths
 -- before going into a node-by-node comparison if paths are equal length.
@@ -157,8 +166,10 @@ move wp@(WorldPos world pos)
   where
     piece = Maybe.fromJust $ getPiece wp
     wps = map (WorldPos world) $ Map.keys world
-    enemies = filter (isEnemy wp) wps
-    preferredPath = map fst <$> shortestPathBool (wp, wp) (\(wp', _) -> isEnemy wp wp')
+    enemies = filter (isEnemy (getRace wp) . getRace) wps
+    goal (wp, startRace) = isEnemy (Just startRace) $ getRace wp
+    startNode = (wp, Maybe.fromJust . getRace $ wp)
+    preferredPath = map fst <$> shortestPathBool startNode goal
     preferredNextPos = (!! 1) <$> preferredPath
     newWorld =
       case preferredNextPos of
