@@ -146,9 +146,11 @@ comparePath a b
     lenA = length a
     lenB = length b
 
--- Performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
+-- If possible, performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
+-- Returns the updated world.
 attack :: WorldPos -> World
 attack wp@(WorldPos world pos)
+  | null . enemyNeighbors $ wp = world -- No enemies nearby, noop
   | newHealth <= 0 = Map.delete enemyPos world
   | otherwise = Map.insert enemyPos newPiece world
   where
@@ -157,24 +159,24 @@ attack wp@(WorldPos world pos)
     newHealth = getHealth weakestEnemy - attackPower
     newPiece = updateHealth newHealth weakestEnemy
 
--- If possible to move, performs a move turn, moving towards the nearest enemy
--- in reading order.
-move :: WorldPos -> World
+-- If necessary and possible to move, performs a move turn, moving towards the nearest enemy
+-- in reading order. Otherwise performs noop. Returns the updated WorldPos.
+move :: WorldPos -> WorldPos
 move wp@(WorldPos world pos)
+  | not . null . enemyNeighbors $ wp = wp -- No moves necessary, we can attack
   | Trace.trace ("Moving to " ++ show preferredNextPos) False = undefined
-  | otherwise = newWorld
+  | otherwise = newWorldPos
   where
     piece = Maybe.fromJust $ getPiece wp
-    wps = map (WorldPos world) $ Map.keys world
-    enemies = filter (isEnemy (getRace wp) . getRace) wps
     goal (wp, startRace) = isEnemy (Just startRace) $ getRace wp
     startNode = (wp, Maybe.fromJust . getRace $ wp)
     preferredPath = map fst <$> shortestPathBool startNode goal
     preferredNextPos = (!! 1) <$> preferredPath
-    newWorld =
+    newWorldPos =
       case preferredNextPos of
-        Nothing -> world -- No move opportunities, this is a noop
-        Just (WorldPos _ nextPos) -> Map.insert nextPos piece . Map.delete pos $ world
+        Nothing -> wp
+        Just (WorldPos _ nextPos) -> WorldPos newWorld nextPos
+          where newWorld = Map.insert nextPos piece . Map.delete pos $ world
 
 -- Play a single turn for the piece at the given WorldPos, returning a new World
 -- as a result of the move.
@@ -182,8 +184,7 @@ play :: World -> Pos -> World
 play world pos
   | not (isGoblin wp || isElf wp) = world -- Inanimate, noop
   | Trace.trace ("Piece: " ++ show wp ++ " (Attacking: " ++ show shouldAttack ++ ")") False = undefined
-  | shouldAttack = attack wp
-  | otherwise = move wp
+  | otherwise = attack . move $ wp
   where
     wp = WorldPos world pos
     shouldAttack = not . null $ enemyNeighbors wp
@@ -199,10 +200,11 @@ playRound world = foldl play world allPos
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
   | Trace.trace ("Round: " ++ show round) False = undefined
-  | allElvesDead = (round, world)
+  | allElvesDead || allGoblinsDead = (round, world)
   | otherwise = playAllRounds (round + 1) (playRound world)
   where
     allElvesDead = all (not . isElf) . map (WorldPos world) . Map.keys $ world
+    allGoblinsDead = all (not . isGoblin) . map (WorldPos world) . Map.keys $ world
 
 attackPower = 3
 
