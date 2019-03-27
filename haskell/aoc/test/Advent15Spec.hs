@@ -41,18 +41,34 @@ spec = do
       let world1' = playRound world1
       getPiece (WorldPos world1' $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 197)
       getPiece (WorldPos world1' $ Pos 2 1) `shouldBe` (Just $ Humanoid Elf 197)
-    it "Performs keeps attacking until the elf is dead" $ do
+    it "Keeps attacking until the elf is dead" $ do
       let (_, world1') = playAllRounds 0 world1
       getPiece (WorldPos world1' $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 2)
       getPiece (WorldPos world1' $ Pos 2 1) `shouldBe` Nothing
-
-  let world2 = readWorld "G"
-  let m1 = "#####"
-  let m2 = "#G..#"
-  let m3 = "#..E#"
-  let m4 = "#####"
-  it "foo" $
-   1 `shouldBe` 1
+  describe "world2" $ do
+    let l1 = "#####"
+    let l2 = "#G..#"
+    let l3 = "#..E#"
+    let l4 = "#####"
+    let world2 = readWorld $ intercalate "\n" [l1, l2, l3, l4]
+    it "Parses properly" $ do
+      getPiece (WorldPos world2 $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 200)
+      getPiece (WorldPos world2 $ Pos 3 2) `shouldBe` (Just $ Humanoid Elf 200)
+    it "Moves on the first play" $ do
+      let world2' = play world2 $ Pos 1 1
+      getPiece (WorldPos world2' $ Pos 1 1) `shouldBe` Nothing
+      getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` (Just $ Humanoid Goblin 200)
+      getPiece (WorldPos world2' $ Pos 3 2) `shouldBe` (Just $ Humanoid Elf 200)
+    it "Both pieces move on the first round" $ do
+      let world2' = playRound world2
+      getPiece (WorldPos world2' $ Pos 1 1) `shouldBe` Nothing
+      getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` (Just $ Humanoid Goblin 200)
+      getPiece (WorldPos world2' $ Pos 3 2) `shouldBe` Nothing
+      getPiece (WorldPos world2' $ Pos 3 1) `shouldBe` (Just $ Humanoid Elf 200)
+    it "Keeps attacking until the elf is dead" $ do
+      let (_, world2') = playAllRounds 0 world2
+      getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` (Just $ Humanoid Goblin 2)
+      getPiece (WorldPos world2' $ Pos 3 1) `shouldBe` Nothing
   {-
   let world3 = readWorld $ intercalate "\n" [m1, m2, m3, m4]
   let wpcToPos (WorldPos _ p, _) = p
