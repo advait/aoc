@@ -149,11 +149,11 @@ comparePath a b
 -- Performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
 attack :: WorldPos -> World
 attack wp@(WorldPos world pos)
-  | newHealth <= 0 = Map.delete pos world
-  | otherwise = Map.insert pos newPiece world
+  | newHealth <= 0 = Map.delete enemyPos world
+  | otherwise = Map.insert enemyPos newPiece world
   where
     compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
-    weakestEnemy = minimumBy compareByHealth $ enemyNeighbors wp
+    weakestEnemy@(WorldPos _ enemyPos) = minimumBy compareByHealth $ enemyNeighbors wp
     newHealth = getHealth weakestEnemy - attackPower
     newPiece = updateHealth newHealth weakestEnemy
 
