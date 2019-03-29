@@ -16,15 +16,6 @@ spec = do
     it "Orders items on the same row" $ sort [Pos 1 0, Pos 0 0] `shouldBe` [Pos 0 0, Pos 1 0]
     it "Orders Y before X in sort" $
       sort [Pos 1 1, Pos 0 0, Pos 0 1, Pos 1 0] `shouldBe` [Pos 0 0, Pos 1 0, Pos 0 1, Pos 1 1]
-  describe "comparePath" $ do
-    it "Prefers shorter paths to the same destination" $ do
-      let p1 = [Pos 0 0, Pos 1 0, Pos 1 1]
-      let p2 = [Pos 0 0, Pos 0 1, Pos 0 2, Pos 1 2, Pos 1 1]
-      comparePath p1 p2 `shouldBe` LT
-    it "Prefers three-length paths according to reading order" $ do
-      let p1 = [Pos 0 0, Pos 1 0, Pos 1 1]
-      let p2 = [Pos 0 0, Pos 0 1, Pos 1 1]
-      comparePath p1 p2 `shouldBe` LT
   describe "world1" $ do
     let l1 = "####"
     let l2 = "#GE#"

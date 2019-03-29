@@ -58,6 +58,7 @@ readWorld s = Map.fromList pieces
     pieces = map (\(pos, p) -> (pos, Maybe.fromJust p)) $ filter (\(_, p) -> Maybe.isJust p) maybePieces
 
 -- A specific position in the world, potentially containing a piece
+-- TODO(advait): Consider whether this should be a monad?
 data WorldPos =
   WorldPos World
            Pos
@@ -125,29 +126,12 @@ isEnemy (Just Goblin) (Just Elf) = True
 isEnemy (Just Elf) (Just Goblin) = True
 isEnemy _ _                      = False
 
-isEnemyWP :: WorldPos -> WorldPos -> Bool
-isEnemyWP wp1 wp2
-  | isGoblin wp1 && isElf wp2 = True
-  | isElf wp1 && isGoblin wp2 = True
-  | otherwise = False
-
 -- Returns adjacent neighbors that are enemies
 enemyNeighbors :: WorldPos -> [WorldPos]
 enemyNeighbors wp = filter (isEnemy (getRace wp) . getRace) $ allNeighbors wp
 
--- Alternative compare function for [Node]/Paths that prefers shorter paths
--- before going into a node-by-node comparison if paths are equal length.
-comparePath :: (Node a) => [a] -> [a] -> Ordering
-comparePath a b
-  | lenA < lenB = LT
-  | lenA > lenB = GT
-  | otherwise = compare a b
-  where
-    lenA = length a
-    lenB = length b
-
 -- If possible, performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
--- Returns the updated world.
+-- Returns the updated world. Performs a noop if no attack is possible.
 attack :: WorldPos -> World
 attack wp@(WorldPos world pos)
   | null . enemyNeighbors $ wp = world -- No enemies nearby, noop
@@ -164,7 +148,6 @@ attack wp@(WorldPos world pos)
 move :: WorldPos -> WorldPos
 move wp@(WorldPos world pos)
   | not . null . enemyNeighbors $ wp = wp -- No moves necessary, we can attack
-  | Trace.trace ("Moving to " ++ show preferredNextPos) False = undefined
   | otherwise = newWorldPos
   where
     piece = Maybe.fromJust $ getPiece wp
@@ -183,7 +166,6 @@ move wp@(WorldPos world pos)
 play :: World -> Pos -> World
 play world pos
   | not (isGoblin wp || isElf wp) = world -- Inanimate, noop
-  | Trace.trace ("Piece: " ++ show wp ++ " (Attacking: " ++ show shouldAttack ++ ")") False = undefined
   | otherwise = attack . move $ wp
   where
     wp = WorldPos world pos
@@ -199,14 +181,13 @@ playRound world = foldl play world allPos
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
-  | Trace.trace ("Round: " ++ show round) False = undefined
-  | endGame world = (round, world)
-  | endGame newWorld = (round, newWorld)
+  | isGameOver world = (round, world) -- We started with a finished world
+  | isGameOver newWorld = (round, newWorld)
   | otherwise = playAllRounds (round + 1) newWorld
   where
     allElvesDead w = all (not . isElf) . map (WorldPos w) . Map.keys $ w
     allGoblinsDead w = all (not . isGoblin) . map (WorldPos w) . Map.keys $ w
-    endGame w = allElvesDead w || allGoblinsDead w
+    isGameOver w = allElvesDead w || allGoblinsDead w
     newWorld = playRound world
 
 -- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
