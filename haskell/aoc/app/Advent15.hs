@@ -35,7 +35,7 @@ data Piece
   = Wall
   | Humanoid Race
              Int
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- Char to Piece
 readPiece :: Int -> Char -> Maybe Piece
@@ -59,14 +59,11 @@ readWorld s = Map.fromList pieces
 
 -- A specific position in the world, potentially containing a piece
 -- TODO(advait): Consider whether this should be a monad?
-data WorldPos =
-  WorldPos World
-           Pos
-  deriving (Eq)
+type WorldPos = (Pos, World)
 
 -- Maybe returns the piece at the given WorldPos
 getPiece :: WorldPos -> Maybe Piece
-getPiece (WorldPos world pos) = Map.lookup pos world
+getPiece (pos, world) = Map.lookup pos world
 
 -- Returns the race of the humanoid
 getRace :: WorldPos -> Maybe Race
@@ -89,17 +86,9 @@ updateHealth h wp =
     Just (Humanoid r _) -> Humanoid r h
     _                   -> error "Cannot set health for non-player piece"
 
--- Prints the pos + piece at this WorldPos
-instance Show WorldPos where
-  show wp@(WorldPos world pos) = show pos ++ ": " ++ show (getPiece wp)
-
--- WorldPos are ordered based on the underlying pos
-instance Ord WorldPos where
-  compare (WorldPos _ pos1) (WorldPos _ pos2) = compare pos1 pos2
-
 -- Returns all adjacent WorldPoss regardless of whether they are occupied
 allNeighbors :: WorldPos -> [WorldPos]
-allNeighbors (WorldPos world (Pos x y)) = map (WorldPos world) posNeighbors
+allNeighbors (Pos x y, world) = map (,world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
@@ -125,32 +114,31 @@ enemyNeighbors wp = filter (isEnemy (getRace wp) . getRace) $ allNeighbors wp
 -- If possible, performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
 -- Returns the updated world. Performs a noop if no attack is possible.
 attack :: WorldPos -> World
-attack wp@(WorldPos world pos)
+attack wp@(pos, world)
   | null . enemyNeighbors $ wp = world -- No enemies nearby, noop
   | newHealth <= 0 = Map.delete enemyPos world
   | otherwise = Map.insert enemyPos newPiece world
   where
     compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
-    weakestEnemy@(WorldPos _ enemyPos) = minimumBy compareByHealth $ enemyNeighbors wp
+    weakestEnemy@(enemyPos, _) = minimumBy compareByHealth $ enemyNeighbors wp
     newHealth = getHealth weakestEnemy - attackPower
     newPiece = updateHealth newHealth weakestEnemy
 
 -- If necessary and possible to move, performs a move turn, moving towards the nearest enemy
 -- in reading order. Otherwise performs noop. Returns the updated WorldPos.
 move :: WorldPos -> WorldPos
-move wp@(WorldPos world pos)
+move wp@(pos, world)
   | not . null . enemyNeighbors $ wp = wp -- No moves necessary, we can attack
   | otherwise = newWorldPos
   where
     piece = Maybe.fromJust $ getPiece wp
-    goal (wp, startRace) = isEnemy (Just startRace) $ getRace wp
     startNode = (wp, Maybe.fromJust . getRace $ wp)
-    preferredPath = map fst <$> shortestPathBool startNode goal
-    preferredNextPos = (!! 1) <$> preferredPath
+    isFinishNode (wp, startRace) = isEnemy (Just startRace) $ getRace wp
+    preferredNextPos = (!! 1) . map fst <$> shortestPathBool startNode isFinishNode
     newWorldPos =
       case preferredNextPos of
         Nothing -> wp
-        Just (WorldPos _ nextPos) -> WorldPos newWorld nextPos
+        Just (nextPos, world) -> (nextPos, newWorld)
           where newWorld = Map.insert nextPos piece . Map.delete pos $ world
 
 -- Play a single turn for the piece at the given WorldPos, returning a new World
@@ -160,7 +148,7 @@ play world pos
   | Maybe.isNothing . getRace $ wp = world -- Inanimate, noop
   | otherwise = attack . move $ wp
   where
-    wp = WorldPos world pos
+    wp = (pos, world)
     shouldAttack = not . null $ enemyNeighbors wp
 
 -- Steps through all pieces in reading order, performs moves, and returns the state
@@ -168,7 +156,7 @@ play world pos
 playRound :: World -> World
 playRound world = foldl play world piecePositions
   where
-    piecePositions = sort . filter (Maybe.isJust . getRace . WorldPos world) $ Map.keys world
+    piecePositions = sort . filter (Maybe.isJust . getRace . (, world)) $ Map.keys world
 
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
@@ -177,7 +165,7 @@ playAllRounds round world
   | onlyOneRace newWorld = (round, newWorld)
   | otherwise = playAllRounds (round + 1) newWorld
   where
-    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . WorldPos w) $ Map.keys w
+    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . (,w)) $ Map.keys w
     newWorld = playRound world
 
 -- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
@@ -185,7 +173,7 @@ summarizeCombat :: World -> Int
 summarizeCombat startWorld = rounds * totalHealth
   where
     (rounds, finalWorld) = playAllRounds 0 startWorld
-    totalHealth = sum . map (getHealth . WorldPos finalWorld) . Map.keys $ finalWorld
+    totalHealth = sum . map (getHealth . (,finalWorld)) . Map.keys $ finalWorld
 
 attackPower = 3
 
