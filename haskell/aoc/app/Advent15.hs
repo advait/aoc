@@ -75,14 +75,6 @@ getRace wp =
     Just (Humanoid r _) -> Just r
     _                   -> Nothing
 
--- Returns whether there is a goblin at WorldPos
-isGoblin :: WorldPos -> Bool
-isGoblin wp = getRace wp == Just Goblin
-
--- Returns whether there is an elf at WorldPos
-isElf :: WorldPos -> Bool
-isElf wp = getRace wp == Just Elf
-
 -- Returns the health of an elf or a goblin
 getHealth :: WorldPos -> Int
 getHealth wp =
@@ -165,7 +157,7 @@ move wp@(WorldPos world pos)
 -- as a result of the move.
 play :: World -> Pos -> World
 play world pos
-  | not (isGoblin wp || isElf wp) = world -- Inanimate, noop
+  | Maybe.isNothing . getRace $ wp = world -- Inanimate, noop
   | otherwise = attack . move $ wp
   where
     wp = WorldPos world pos
@@ -174,20 +166,18 @@ play world pos
 -- Steps through all pieces in reading order, performs moves, and returns the state
 -- of the world after one full found.
 playRound :: World -> World
-playRound world = foldl play world allPos
+playRound world = foldl play world piecePositions
   where
-    allPos = sort $ Map.keys world
+    piecePositions = sort . filter (Maybe.isJust . getRace . WorldPos world) $ Map.keys world
 
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
-  | isGameOver world = (round, world) -- We started with a finished world
-  | isGameOver newWorld = (round, newWorld)
+  | onlyOneRace world = (round, world) -- We started with a finished world
+  | onlyOneRace newWorld = (round, newWorld)
   | otherwise = playAllRounds (round + 1) newWorld
   where
-    allElvesDead w = all (not . isElf) . map (WorldPos w) . Map.keys $ w
-    allGoblinsDead w = all (not . isGoblin) . map (WorldPos w) . Map.keys $ w
-    isGameOver w = allElvesDead w || allGoblinsDead w
+    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . WorldPos w) $ Map.keys w
     newWorld = playRound world
 
 -- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
