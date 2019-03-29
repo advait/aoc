@@ -221,6 +221,4 @@ attackPower = 3
 startingHealth = 200
 
 main :: IO ()
-main = do
-  input <- getContents
-  print . summarizeCombat . readWorld $ input
+main = interact (show . summarizeCombat . readWorld)
