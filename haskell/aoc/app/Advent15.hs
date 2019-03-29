@@ -58,48 +58,50 @@ readWorld s = Map.fromList pieces
     pieces = map (\(pos, p) -> (pos, Maybe.fromJust p)) $ filter (\(_, p) -> Maybe.isJust p) maybePieces
 
 -- A specific position in the world, potentially containing a piece
--- TODO(advait): Consider whether this should be a monad?
-type WorldPos = (Pos, World)
+-- TODO(advait): Consider using monadic approaches to introspecting and modifying PosWorld.
+type PosWorld = (Pos, World)
 
--- Maybe returns the piece at the given WorldPos
-getPiece :: WorldPos -> Maybe Piece
+-- Maybe returns the piece at the given PosWorld
+getPiece :: PosWorld -> Maybe Piece
 getPiece (pos, world) = Map.lookup pos world
 
--- Returns the race of the humanoid
-getRace :: WorldPos -> Maybe Race
-getRace wp =
-  case getPiece wp of
+-- Maybe returns the race of the humanoid at the given PosWorld
+getRace :: PosWorld -> Maybe Race
+getRace pw =
+  case getPiece pw of
     Just (Humanoid r _) -> Just r
     _                   -> Nothing
 
 -- Returns the health of an elf or a goblin
-getHealth :: WorldPos -> Int
-getHealth wp =
-  case getPiece wp of
+getHealth :: PosWorld -> Int
+getHealth pw =
+  case getPiece pw of
     Just (Humanoid _ h) -> h
     _                   -> 0
 
 -- Updates the health of the given piece
-updateHealth :: Int -> WorldPos -> Piece
-updateHealth h wp =
-  case getPiece wp of
+updateHealth :: Int -> PosWorld -> Piece
+updateHealth h pw =
+  case getPiece pw of
     Just (Humanoid r _) -> Humanoid r h
     _                   -> error "Cannot set health for non-player piece"
 
--- Returns all adjacent WorldPoss regardless of whether they are occupied
-allNeighbors :: WorldPos -> [WorldPos]
+-- Returns all adjacent PosWorlds regardless of whether they are occupied
+allNeighbors :: PosWorld -> [PosWorld]
 allNeighbors (Pos x y, world) = map (,world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
--- Represents a view of the world from the perspective of the given race.
--- WorldPosContext is an instance of Node for pathfinding, but only finds paths through empty tiles or enemies.
-type WorldPosContext = (WorldPos, Race)
+-- Represents a pathfinding view of the world from the perspective of the given race. A search from the perspective
+-- of a goblin will be different than a search from the perspective of an elf (i.e. goblins will find other goblin
+-- PosWorlds as non-empty while it will find elf tiles as traversable). As a result, we must note the Race of the
+-- starting tile when we start our search.
+type SearchNode = (PosWorld, Race)
 
-instance Node WorldPosContext where
-  neighbors (wp, startRace) = map (, startRace) . filter enemyOrEmpty . allNeighbors $ wp
+instance Node SearchNode where
+  neighbors (pw, startRace) = map (, startRace) . filter enemyOrEmpty . allNeighbors $ pw
     where
-      enemyOrEmpty wp = isEnemy (Just startRace) (getRace wp) || Maybe.isNothing (getPiece wp)
+      enemyOrEmpty pw = isEnemy (Just startRace) (getRace pw) || Maybe.isNothing (getPiece pw)
 
 -- Returns whether the two pieces are enemies
 isEnemy :: Maybe Race -> Maybe Race -> Bool
@@ -108,51 +110,46 @@ isEnemy (Just Elf) (Just Goblin) = True
 isEnemy _ _                      = False
 
 -- Returns adjacent neighbors that are enemies
-enemyNeighbors :: WorldPos -> [WorldPos]
-enemyNeighbors wp = filter (isEnemy (getRace wp) . getRace) $ allNeighbors wp
+enemyNeighbors :: PosWorld -> [PosWorld]
+enemyNeighbors pw = filter (isEnemy (getRace pw) . getRace) $ allNeighbors pw
 
 -- If possible, performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
 -- Returns the updated world. Performs a noop if no attack is possible.
-attack :: WorldPos -> World
-attack wp@(pos, world)
-  | null . enemyNeighbors $ wp = world -- No enemies nearby, noop
+attack :: PosWorld -> World
+attack pw@(pos, world)
+  | null . enemyNeighbors $ pw = world -- No enemies nearby, noop
   | newHealth <= 0 = Map.delete enemyPos world
   | otherwise = Map.insert enemyPos newPiece world
   where
-    compareByHealth wp1 wp2 = compare (getHealth wp1) (getHealth wp2)
-    weakestEnemy@(enemyPos, _) = minimumBy compareByHealth $ enemyNeighbors wp
+    compareByHealth pw1 pw2 = compare (getHealth pw1) (getHealth pw2)
+    weakestEnemy@(enemyPos, _) = minimumBy compareByHealth $ enemyNeighbors pw
     newHealth = getHealth weakestEnemy - attackPower
     newPiece = updateHealth newHealth weakestEnemy
 
 -- If necessary and possible to move, performs a move turn, moving towards the nearest enemy
--- in reading order. Otherwise performs noop. Returns the updated WorldPos.
-move :: WorldPos -> WorldPos
-move wp@(pos, world)
-  | not . null . enemyNeighbors $ wp = wp -- No moves necessary, we can attack
-  | otherwise = newWorldPos
+-- in reading order. Otherwise performs noop. Returns the updated PosWorld.
+move :: PosWorld -> PosWorld
+move pw@(pos, world)
+  | not . null . enemyNeighbors $ pw = pw -- No moves necessary, we can attack
+  | otherwise = newPosWorld
   where
-    piece = Maybe.fromJust $ getPiece wp
-    startNode = (wp, Maybe.fromJust . getRace $ wp)
-    isFinishNode (wp, startRace) = isEnemy (Just startRace) $ getRace wp
+    piece = Maybe.fromJust $ getPiece pw
+    startNode = (pw, Maybe.fromJust . getRace $ pw)
+    isFinishNode (pw, startRace) = isEnemy (Just startRace) $ getRace pw
     preferredNextPos = (!! 1) . map fst <$> shortestPathBool startNode isFinishNode
-    newWorldPos =
+    newPosWorld =
       case preferredNextPos of
-        Nothing -> wp
+        Nothing -> pw
         Just (nextPos, world) -> (nextPos, newWorld)
           where newWorld = Map.insert nextPos piece . Map.delete pos $ world
 
--- Play a single turn for the piece at the given WorldPos, returning a new World
--- as a result of the move.
+-- Play a single turn for the piece at the given PosWorld, returning a new World as a result of the move.
 play :: World -> Pos -> World
 play world pos
-  | Maybe.isNothing . getRace $ wp = world -- Inanimate, noop
-  | otherwise = attack . move $ wp
-  where
-    wp = (pos, world)
-    shouldAttack = not . null $ enemyNeighbors wp
+  | Maybe.isNothing . getRace $ (pos, world) = world -- Inanimate, noop
+  | otherwise = attack . move $ (pos, world)
 
--- Steps through all pieces in reading order, performs moves, and returns the state
--- of the world after one full found.
+-- Steps through all pieces in reading order, performs moves, and returns the state of the world after one full found.
 playRound :: World -> World
 playRound world = foldl play world piecePositions
   where
