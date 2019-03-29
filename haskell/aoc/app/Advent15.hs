@@ -4,12 +4,12 @@
 module Advent15 where
 
 import           Data.List
-import qualified Data.Map             as Map
-import qualified Data.Maybe           as Maybe
-import qualified Data.Set             as Set
-import qualified Debug.Trace          as Trace
+import qualified Data.Map    as Map
+import qualified Data.Maybe  as Maybe
+import qualified Data.Set    as Set
+import qualified Debug.Trace as Trace
 import           Pathfinding
-import qualified System.IO            as IO
+import qualified System.IO   as IO
 
 -- (X, Y) cartesian coordinates
 data Pos =
@@ -200,11 +200,21 @@ playRound world = foldl play world allPos
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
   | Trace.trace ("Round: " ++ show round) False = undefined
-  | allElvesDead || allGoblinsDead = (round, world)
-  | otherwise = playAllRounds (round + 1) (playRound world)
+  | endGame world = (round, world)
+  | endGame newWorld = (round, newWorld)
+  | otherwise = playAllRounds (round + 1) newWorld
   where
-    allElvesDead = all (not . isElf) . map (WorldPos world) . Map.keys $ world
-    allGoblinsDead = all (not . isGoblin) . map (WorldPos world) . Map.keys $ world
+    allElvesDead w = all (not . isElf) . map (WorldPos w) . Map.keys $ w
+    allGoblinsDead w = all (not . isGoblin) . map (WorldPos w) . Map.keys $ w
+    endGame w = allElvesDead w || allGoblinsDead w
+    newWorld = playRound world
+
+-- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
+summarizeCombat :: World -> Int
+summarizeCombat startWorld = rounds * totalHealth
+  where
+    (rounds, finalWorld) = playAllRounds 0 startWorld
+    totalHealth = sum . map (getHealth . WorldPos finalWorld) . Map.keys $ finalWorld
 
 attackPower = 3
 
@@ -213,7 +223,4 @@ startingHealth = 200
 main :: IO ()
 main = do
   input <- getContents
-  let startWorld = readWorld input
-  let (rounds, finalWorld) = playAllRounds 0 startWorld
-  let totalHealth = sum . map (getHealth . WorldPos finalWorld) . Map.keys $ finalWorld
-  print (rounds * totalHealth)
+  print . summarizeCombat . readWorld $ input

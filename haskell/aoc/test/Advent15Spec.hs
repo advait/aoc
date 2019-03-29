@@ -41,10 +41,10 @@ spec = do
       let world1' = playRound world1
       getPiece (WorldPos world1' $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 197)
       getPiece (WorldPos world1' $ Pos 2 1) `shouldBe` (Just $ Humanoid Elf 197)
-    it "Keeps attacking until the elf is dead" $ do
-      let (_, world1') = playAllRounds 0 world1
-      getPiece (WorldPos world1' $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 2)
-      getPiece (WorldPos world1' $ Pos 2 1) `shouldBe` Nothing
+    -- it "Keeps attacking until the elf is dead" $ do
+      -- let (_, world1') = playAllRounds 0 world1
+      -- getPiece (WorldPos world1' $ Pos 1 1) `shouldBe` (Just $ Humanoid Goblin 2)
+      -- getPiece (WorldPos world1' $ Pos 2 1) `shouldBe` Nothing
   describe "world2" $ do
     let l1 = "#####"
     let l2 = "#G..#"
@@ -59,16 +59,16 @@ spec = do
       getPiece (WorldPos world2' $ Pos 1 1) `shouldBe` Nothing
       getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` (Just $ Humanoid Goblin 200)
       getPiece (WorldPos world2' $ Pos 3 2) `shouldBe` (Just $ Humanoid Elf 200)
-    it "Both pieces move on the first round" $ do
+    it "Both pieces move on the first round, and the elf attacks" $ do
       let world2' = playRound world2
       getPiece (WorldPos world2' $ Pos 1 1) `shouldBe` Nothing
       getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` (Just $ Humanoid Goblin 197)
       getPiece (WorldPos world2' $ Pos 3 2) `shouldBe` Nothing
       getPiece (WorldPos world2' $ Pos 3 1) `shouldBe` (Just $ Humanoid Elf 200)
-    it "Keeps attacking until the elf is dead" $ do
+    it "Keeps attacking until the goblin is dead" $ do
       let (_, world2') = playAllRounds 0 world2
-      getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` Nothing
       getPiece (WorldPos world2' $ Pos 3 1) `shouldBe` (Just $ Humanoid Elf 2)
+      getPiece (WorldPos world2' $ Pos 2 1) `shouldBe` Nothing
   describe "world3" $ do
     let l1 = "#######"
     let l2 = "#.G...#"
@@ -111,9 +111,22 @@ spec = do
       getPiece (WorldPos world3' $ Pos 2 2) `shouldBe` (Just $ Humanoid Goblin 131)
       getPiece (WorldPos world3' $ Pos 5 3) `shouldBe` (Just $ Humanoid Goblin 59)
       getPiece (WorldPos world3' $ Pos 5 5) `shouldBe` (Just $ Humanoid Goblin 200)
-
-
-
+  describe "summarizeCombat" $
+    it "Works for example #1" $ do
+      let l1 = "#######"
+      let l2 = "#G..#E#"
+      let l3 = "#E#E.E#"
+      let l4 = "#G.##.#"
+      let l5 = "#...#E#"
+      let l6 = "#...E.#"
+      let l7 = "#######"
+      let example1 = readWorld $ intercalate "\n" [l1, l2, l3, l4, l5, l6, l7]
+      let (round, example1') = playAllRounds 0 example1
+      let cases = [((Pos 5 1), 200), ((Pos 1 2), 197), ((Pos 2 3), 185), ((Pos 1 4), 200), ((Pos 5 4), 200)]
+      let assertions = map (\(p, h) -> getPiece (WorldPos example1' $ p) `shouldBe` (Just $ Humanoid Elf h)) cases
+      sequence assertions
+      round `shouldBe` 37
+      summarizeCombat example1 `shouldBe` 36334
     {- #.G...#   G(200)
        #...EG#   E(200), G(200)
        #.#.#G#   G(200)
@@ -157,5 +170,13 @@ spec = do
 -- As a test, allow Pos to implement the Node class
  -}
 
+{-
+#######       #######
+#G..#E#       #...#E#   E(200)
+#E#E.E#       #E#...#   E(197)
+#G.##.#  -->  #.E##.#   E(185)
+#...#E#       #E..#E#   E(200), E(200)
+#...E.#       #.....#
+#######       #######-}
 instance Node Pos where
   neighbors (Pos x y) = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
