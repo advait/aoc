@@ -184,24 +184,39 @@ play world pos
   | Maybe.isNothing . getRace $ (pos, world) = world -- Inanimate, noop
   | otherwise = attack . move $ (pos, world)
 
--- Steps through all pieces in reading order, performs moves, and returns the state of the world after one full found.
-playRound :: World -> World
-playRound world = foldl play world piecePositions
+-- Returns whether the game is over (only one race remining)
+isGameOver :: World -> Bool
+isGameOver w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . (, w)) $ Map.keys w
+
+-- Represents the state of the game after a round
+data RoundStatus
+  = GameContinues -- The game is not over, battle continues
+  | GameOverIncompleteRound -- The game completed in the middle of this round
+  | GameOverCompleteRound -- The game completed as a consequence of the final player's turn signifying a full round
+
+-- Steps through pieces in reading order, performs moves/attacks, and returns the final world as well as a RoundStatus.
+playRound :: World -> (World, RoundStatus)
+playRound world = rec world piecePositions
   where
     piecePositions = sort . filter (Maybe.isJust . getRace . (, world)) $ Map.keys world
+    rec :: World -> [Pos] -> (World, RoundStatus)
+    rec world []
+      | isGameOver world = (world, GameOverCompleteRound)
+      | otherwise = (world, GameContinues)
+    rec world (pos:rest)
+      | isGameOver world = (world, GameOverIncompleteRound)
+      | otherwise = rec (play world pos) rest
 
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
   | Trace.trace ("Round: " ++ show round) False = undefined
   | Trace.trace ("World: \n" ++ showWorld world) False = undefined
-  | Trace.trace ("Nextw: \n" ++ showWorld newWorld) False = undefined
-  | onlyOneRace world = (round, world) -- We started with a finished world
-  | onlyOneRace newWorld = (round, newWorld)
-  | otherwise = playAllRounds (round + 1) newWorld
-  where
-    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . (, w)) $ Map.keys w
-    newWorld = playRound world
+  | otherwise =
+    case playRound world of
+      (newWorld, GameContinues) -> playAllRounds (round + 1) newWorld
+      (newWorld, GameOverIncompleteRound) -> (round, newWorld)
+      (newWorld, GameOverCompleteRound) -> (round + 1, newWorld)
 
 -- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
 summarizeCombat :: World -> Int

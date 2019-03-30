@@ -29,7 +29,7 @@ spec = do
       getPiece (Pos 1 1, world1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 2 1, world1') `shouldBe` (Just $ Humanoid Elf 197 3)
     it "Performs two attacks after the first whole round" $ do
-      let world1' = playRound world1
+      let (world1', _) = playRound world1
       getPiece (Pos 1 1, world1') `shouldBe` (Just $ Humanoid Goblin 197 3)
       getPiece (Pos 2 1, world1') `shouldBe` (Just $ Humanoid Elf 197 3)
     it "Keeps attacking until the elf is dead" $ do
@@ -51,7 +51,7 @@ spec = do
       getPiece (Pos 2 1, world2') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 3 2, world2') `shouldBe` (Just $ Humanoid Elf 200 3)
     it "Both pieces move on the first round, and the elf attacks" $ do
-      let world2' = playRound world2
+      let (world2', _) = playRound world2
       getPiece (Pos 1 1, world2') `shouldBe` Nothing
       getPiece (Pos 2 1, world2') `shouldBe` (Just $ Humanoid Goblin 197 3)
       getPiece (Pos 3 2, world2') `shouldBe` Nothing
@@ -73,7 +73,7 @@ spec = do
       getPiece (Pos 2 1, example1) `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 4 2, example1) `shouldBe` (Just $ Humanoid Elf 200 3)
     it "Looks right after one full round" $ do
-      let example1' = playRound example1
+      let (example1', _) = playRound example1
       getPiece (Pos 3 1, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 4 2, example1') `shouldBe` (Just $ Humanoid Elf 197 3)
       getPiece (Pos 5 2, example1') `shouldBe` (Just $ Humanoid Goblin 197 3)
@@ -81,7 +81,7 @@ spec = do
       getPiece (Pos 5 3, example1') `shouldBe` (Just $ Humanoid Goblin 197 3)
       getPiece (Pos 5 4, example1') `shouldBe` (Just $ Humanoid Elf 197 3)
     it "Looks right after two full rounds" $ do
-      let example1' = foldl (\world _ -> playRound world) example1 [1 .. 2]
+      let example1' = foldl (\world _ -> fst . playRound $ world) example1 [1 .. 2]
       getPiece (Pos 4 1, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 3 2, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 4 2, example1') `shouldBe` (Just $ Humanoid Elf 188 3)
@@ -89,7 +89,7 @@ spec = do
       getPiece (Pos 5 3, example1') `shouldBe` (Just $ Humanoid Goblin 194 3)
       getPiece (Pos 5 4, example1') `shouldBe` (Just $ Humanoid Elf 194 3)
     it "Looks right after 23 full rounds when first elf dies" $ do
-      let example1' = foldl (\world _ -> playRound world) example1 [1 .. 23]
+      let example1' = foldl (\world _ -> fst . playRound $ world) example1 [1 .. 23]
       getPiece (Pos 4 1, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 3 2, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 4 2, example1') `shouldBe` Nothing
@@ -97,15 +97,12 @@ spec = do
       getPiece (Pos 5 4, example1') `shouldBe` (Just $ Humanoid Elf 131 3)
     it "Looks right after all rounds have been played" $ do
       let (round, example1') = playAllRounds 0 example1
-      round `shouldBe` 46
+      round `shouldBe` 47
       getPiece (Pos 1 1, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
       getPiece (Pos 2 2, example1') `shouldBe` (Just $ Humanoid Goblin 131 3)
       getPiece (Pos 5 3, example1') `shouldBe` (Just $ Humanoid Goblin 59 3)
       getPiece (Pos 5 5, example1') `shouldBe` (Just $ Humanoid Goblin 200 3)
-    it "summarizeCombat" $ do
-      let (round, _) = playAllRounds 0 example1
-      round `shouldBe` 47
-      summarizeCombat example1 `shouldBe` 27730
+    it "summarizeCombat" $ summarizeCombat example1 `shouldBe` 27730
     it "findMinimumPower" $ findMinimumPower example1 `shouldBe` 4988
   describe "Example #2" $ do
     let l1 = "#######"
