@@ -236,7 +236,7 @@ updateElfAttackPower power world = newWorld
 
 -- Increments the elf attack power until an entire round happens where they don't die.
 findMinimumPower :: World -> Int
-findMinimumPower startWorld = rec 14 startWorld
+findMinimumPower startWorld = rec 4 startWorld
   where
     getElfCount world = length . filter ((== Just Elf) . getRace) . map (, world) . Map.keys $ world
     startingElfCount = getElfCount startWorld
