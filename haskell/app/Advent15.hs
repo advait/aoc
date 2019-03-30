@@ -35,15 +35,16 @@ data Piece
   = Wall
   | Humanoid Race
              Int
+             Int
   deriving (Show, Eq, Ord)
 
 -- Char to Piece
-readPiece :: Int -> Char -> Maybe Piece
-readPiece _ '#'      = Just Wall
-readPiece health 'G' = Just $ Humanoid Goblin health
-readPiece health 'E' = Just $ Humanoid Elf health
-readPiece _ '.'      = Nothing
-readPiece _ c        = error $ "Invalid piece: " ++ [c]
+readPiece :: Char -> Maybe Piece
+readPiece '#' = Just Wall
+readPiece 'G' = Just $ Humanoid Goblin 200 3
+readPiece 'E' = Just $ Humanoid Elf 200 3
+readPiece '.' = Nothing
+readPiece c   = error $ "Invalid piece: " ++ [c]
 
 -- The state of the world where Pieces exist at Positions
 type World = Map.Map Pos Piece
@@ -53,7 +54,7 @@ readWorld :: String -> World
 readWorld s = Map.fromList pieces
   where
     zipWithIndex = zip [0 ..]
-    mapLine (y, line) = map (\(x, c) -> (Pos x y, readPiece startingHealth c)) (zipWithIndex line)
+    mapLine (y, line) = map (\(x, c) -> (Pos x y, readPiece c)) (zipWithIndex line)
     maybePieces = concatMap mapLine . zipWithIndex $ lines s
     pieces = map (\(pos, p) -> (pos, Maybe.fromJust p)) $ filter (\(_, p) -> Maybe.isJust p) maybePieces
 
@@ -69,26 +70,33 @@ getPiece (pos, world) = Map.lookup pos world
 getRace :: PosWorld -> Maybe Race
 getRace pw =
   case getPiece pw of
-    Just (Humanoid r _) -> Just r
-    _                   -> Nothing
+    Just (Humanoid r _ _) -> Just r
+    _                     -> Nothing
 
--- Returns the health of an elf or a goblin
+-- Returns the attack power of an elf or a goblin
+getAttackPower :: PosWorld -> Int
+getAttackPower pw =
+  case getPiece pw of
+    Just (Humanoid _ _ p) -> p
+    _                     -> error "Wall does not have attack power"
+
+-- Returns the health of an elf or a goblin or 0 if the PosWorld is empty or contains a Wall
 getHealth :: PosWorld -> Int
 getHealth pw =
   case getPiece pw of
-    Just (Humanoid _ h) -> h
-    _                   -> 0
+    Just (Humanoid _ h _) -> h
+    _                     -> 0
 
 -- Updates the health of the given piece
 updateHealth :: Int -> PosWorld -> Piece
-updateHealth h pw =
+updateHealth health pw =
   case getPiece pw of
-    Just (Humanoid r _) -> Humanoid r h
-    _                   -> error "Cannot set health for non-player piece"
+    Just (Humanoid race _ attackPower) -> Humanoid race health attackPower
+    _ -> error "Cannot set health for non-player piece"
 
 -- Returns all adjacent PosWorlds regardless of whether they are occupied
 allNeighbors :: PosWorld -> [PosWorld]
-allNeighbors (Pos x y, world) = map (,world) posNeighbors
+allNeighbors (Pos x y, world) = map (, world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
@@ -123,7 +131,7 @@ attack pw@(pos, world)
   where
     compareByHealth pw1 pw2 = compare (getHealth pw1) (getHealth pw2)
     weakestEnemy@(enemyPos, _) = minimumBy compareByHealth $ enemyNeighbors pw
-    newHealth = getHealth weakestEnemy - attackPower
+    newHealth = getHealth weakestEnemy - getAttackPower pw
     newPiece = updateHealth newHealth weakestEnemy
 
 -- If necessary and possible to move, performs a move turn, moving towards the nearest enemy
@@ -158,11 +166,14 @@ playRound world = foldl play world piecePositions
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
+  | Trace.trace ("Round: " ++ show round) False = undefined
+  | Trace.trace ("World: \n" ++ showWorld world) False = undefined
+  | Trace.trace ("Nextw: \n" ++ showWorld newWorld) False = undefined
   | onlyOneRace world = (round, world) -- We started with a finished world
   | onlyOneRace newWorld = (round, newWorld)
   | otherwise = playAllRounds (round + 1) newWorld
   where
-    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . (,w)) $ Map.keys w
+    onlyOneRace w = (== 1) . Set.size . Set.fromList . Maybe.mapMaybe (getRace . (, w)) $ Map.keys w
     newWorld = playRound world
 
 -- Play all rounds and return the summarized combat (sum of health times number of full rounds played)
@@ -170,11 +181,65 @@ summarizeCombat :: World -> Int
 summarizeCombat startWorld = rounds * totalHealth
   where
     (rounds, finalWorld) = playAllRounds 0 startWorld
-    totalHealth = sum . map (getHealth . (,finalWorld)) . Map.keys $ finalWorld
+    totalHealth = sum . map (getHealth . (, finalWorld)) . Map.keys $ finalWorld
 
-attackPower = 3
+-- Updates the elf pieces, giving them the provided attack power.
+updateElfAttackPower :: Int -> World -> World
+updateElfAttackPower power world = newWorld
+  where
+    updateOne :: Piece -> Piece
+    updateOne (Humanoid Elf health _) = Humanoid Elf health power
+    updateOne other                   = other
+    newWorld = Map.map updateOne world
 
-startingHealth = 200
+-- Increments the elf attack power until an entire round happens where they don't die.
+findMinimumPower :: World -> Int
+findMinimumPower startWorld = rec 4 startWorld
+  where
+    getElfCount world = length . filter ((== Just Elf) . getRace) . map (, world) . Map.keys $ world
+    startingElfCount = getElfCount startWorld
+    rec :: Int -> World -> Int
+    rec power world
+      | Trace.trace ("Trying power: " ++ show power) False = undefined
+      | Trace.trace ("Elf counts: " ++ show startingElfCount ++ " " ++ (show . getElfCount $ finalWorld)) False =
+        undefined
+      | getElfCount finalWorld == startingElfCount = rounds * totalHealth
+      | otherwise = rec (power + 1) world
+      where
+        (rounds, finalWorld) = playAllRounds 0 (updateElfAttackPower power world)
+        totalHealth = sum . map (getHealth . (, finalWorld)) . Map.keys $ finalWorld
 
 main :: IO ()
-main = interact (show . summarizeCombat . readWorld)
+main = do
+  world <- readWorld <$> getContents
+  let problem1 = summarizeCombat world
+  let problem2 = findMinimumPower world
+  putStrLn $ "Problem 1: " ++ show problem1
+  putStrLn $ "Problem 2: " ++ show problem2
+
+-- Prints the world in a format similar to what we see on Advent of Code for debugging.
+showWorld :: World -> String
+showWorld world = rec 0
+  where
+    rec :: Int -> String
+    maxX = maximum . map (\(Pos x _) -> x) . Map.keys $ world
+    maxY = maximum . map (\(Pos _ y) -> y) . Map.keys $ world
+    poss = sort [Pos x y | x <- [0 .. maxX], y <- [0 .. maxY]]
+    rec row
+      | null pws = "" -- No more things to print
+      | otherwise = rowString ++ rec (row + 1)
+      where
+        pws = sort . map (, world) . filter (\(Pos _ y) -> y == row) $ poss
+        dungeonMap = map (showPieceShort . getPiece) pws
+        pieceLegend =
+          intercalate ", " . map showPieceLegend . Maybe.mapMaybe getPiece . filter (Maybe.isJust . getRace) $ pws
+        rowString = dungeonMap ++ "  " ++ pieceLegend ++ "\n"
+    showPieceShort :: Maybe Piece -> Char
+    showPieceShort (Just Wall)                  = '#'
+    showPieceShort (Just (Humanoid Goblin _ _)) = 'G'
+    showPieceShort (Just (Humanoid Elf _ _))    = 'E'
+    showPieceShort _                            = '.'
+    showPieceLegend :: Piece -> String
+    showPieceLegend (Humanoid Goblin h _) = "G(" ++ show h ++ ")"
+    showPieceLegend (Humanoid Elf h _) = "E(" ++ show h ++ ")"
+    showPieceLegend _ = error "Cannot show legend for Wall"
