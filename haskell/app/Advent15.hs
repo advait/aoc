@@ -58,6 +58,33 @@ readWorld s = Map.fromList pieces
     maybePieces = concatMap mapLine . zipWithIndex $ lines s
     pieces = map (\(pos, p) -> (pos, Maybe.fromJust p)) $ filter (\(_, p) -> Maybe.isJust p) maybePieces
 
+-- Prints the world in a format similar to what we see on Advent of Code for debugging.
+showWorld :: World -> String
+showWorld world = rec 0
+  where
+    rec :: Int -> String
+    maxX = maximum . map (\(Pos x _) -> x) . Map.keys $ world
+    maxY = maximum . map (\(Pos _ y) -> y) . Map.keys $ world
+    poss = sort [Pos x y | x <- [0 .. maxX], y <- [0 .. maxY]]
+    rec row
+      | null pws = "" -- No more things to print
+      | otherwise = rowString ++ rec (row + 1)
+      where
+        pws = sort . map (, world) . filter (\(Pos _ y) -> y == row) $ poss
+        dungeonMap = map (showPieceShort . getPiece) pws
+        pieceLegend =
+          intercalate ", " . map showPieceLegend . Maybe.mapMaybe getPiece . filter (Maybe.isJust . getRace) $ pws
+        rowString = dungeonMap ++ "  " ++ pieceLegend ++ "\n"
+    showPieceShort :: Maybe Piece -> Char
+    showPieceShort (Just Wall)                  = '#'
+    showPieceShort (Just (Humanoid Goblin _ _)) = 'G'
+    showPieceShort (Just (Humanoid Elf _ _))    = 'E'
+    showPieceShort _                            = '.'
+    showPieceLegend :: Piece -> String
+    showPieceLegend (Humanoid Goblin h _) = "G(" ++ show h ++ ")"
+    showPieceLegend (Humanoid Elf h _) = "E(" ++ show h ++ ")"
+    showPieceLegend _ = error "Cannot show legend for Wall"
+
 -- A specific position in the world, potentially containing a piece
 -- TODO(advait): Consider using monadic approaches to introspecting and modifying PosWorld.
 type PosWorld = (Pos, World)
@@ -194,7 +221,7 @@ updateElfAttackPower power world = newWorld
 
 -- Increments the elf attack power until an entire round happens where they don't die.
 findMinimumPower :: World -> Int
-findMinimumPower startWorld = rec 4 startWorld
+findMinimumPower startWorld = rec 14 startWorld
   where
     getElfCount world = length . filter ((== Just Elf) . getRace) . map (, world) . Map.keys $ world
     startingElfCount = getElfCount startWorld
@@ -214,32 +241,5 @@ main = do
   world <- readWorld <$> getContents
   let problem1 = summarizeCombat world
   let problem2 = findMinimumPower world
-  putStrLn $ "Problem 1: " ++ show problem1
+  --putStrLn $ "Problem 1: " ++ show problem1
   putStrLn $ "Problem 2: " ++ show problem2
-
--- Prints the world in a format similar to what we see on Advent of Code for debugging.
-showWorld :: World -> String
-showWorld world = rec 0
-  where
-    rec :: Int -> String
-    maxX = maximum . map (\(Pos x _) -> x) . Map.keys $ world
-    maxY = maximum . map (\(Pos _ y) -> y) . Map.keys $ world
-    poss = sort [Pos x y | x <- [0 .. maxX], y <- [0 .. maxY]]
-    rec row
-      | null pws = "" -- No more things to print
-      | otherwise = rowString ++ rec (row + 1)
-      where
-        pws = sort . map (, world) . filter (\(Pos _ y) -> y == row) $ poss
-        dungeonMap = map (showPieceShort . getPiece) pws
-        pieceLegend =
-          intercalate ", " . map showPieceLegend . Maybe.mapMaybe getPiece . filter (Maybe.isJust . getRace) $ pws
-        rowString = dungeonMap ++ "  " ++ pieceLegend ++ "\n"
-    showPieceShort :: Maybe Piece -> Char
-    showPieceShort (Just Wall)                  = '#'
-    showPieceShort (Just (Humanoid Goblin _ _)) = 'G'
-    showPieceShort (Just (Humanoid Elf _ _))    = 'E'
-    showPieceShort _                            = '.'
-    showPieceLegend :: Piece -> String
-    showPieceLegend (Humanoid Goblin h _) = "G(" ++ show h ++ ")"
-    showPieceLegend (Humanoid Elf h _) = "E(" ++ show h ++ ")"
-    showPieceLegend _ = error "Cannot show legend for Wall"
