@@ -146,6 +146,28 @@ spec = do
     let l9 = "#########"
     let example5 = readWorld $ intercalate "\n" [l1, l2, l3, l4, l5, l6, l7, l8, l9]
     it "findMinimumPower" $ findMinimumPower example5 `shouldBe` 1140
+  describe "Reading order tiebreak" $ do
+    let l1 = "########"
+    let l2 = "#..E...#"
+    let l3 = "#.####G#"
+    let l4 = "#G######"
+    let l5 = "########"
+    let world = readWorld $ intercalate "\n" [l1, l2, l3, l4, l5]
+    it "Chooses to go right instead of right" $ do
+      let world' = play world (Pos 3 1)
+      getPiece (Pos 2 1, world') `shouldBe` Nothing
+      getPiece (Pos 4 1, world') `shouldBe` Just (Humanoid Elf 200 3)
+  describe "Judge reading order based on in-range/attacking squares as opposed to goblin squares" $ do
+    let l1 = "#######"
+    let l2 = "#..E#G#"
+    let l3 = "#.....#"
+    let l4 = "#G#...#"
+    let l5 = "#######"
+    let world = readWorld $ intercalate "\n" [l1, l2, l3, l4, l5]
+    it "Chooses to go left instead of down" $ do
+      let world' = play world (Pos 3 1)
+      getPiece (Pos 2 1, world') `shouldBe` Just (Humanoid Elf 200 3)
+      getPiece (Pos 3 2, world') `shouldBe` Nothing
 
 instance Node Pos where
   neighbors (Pos x y) = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]

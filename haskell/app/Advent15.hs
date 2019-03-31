@@ -138,6 +138,15 @@ instance Node SearchNode where
     where
       enemyOrEmpty pw = isEnemy (Just startRace) (getRace pw) || Maybe.isNothing (getPiece pw)
 
+-- Attempts to find a move path for the given PosWorld, seeking the closest enemy.
+pathfind :: PosWorld -> Maybe [PosWorld]
+pathfind pw@(pos, world) = preferredPath
+  where
+    startRace = Maybe.fromJust $ getRace pw
+    isFinishNode (pw, startRace) = isEnemy (Just startRace) $ getRace pw
+    startNode = (pw, startRace)
+    preferredPath = map fst <$> shortestPathBool startNode isFinishNode
+
 -- Returns whether the two pieces are enemies
 isEnemy :: Maybe Race -> Maybe Race -> Bool
 isEnemy (Just Goblin) (Just Elf) = True
@@ -169,9 +178,7 @@ move pw@(pos, world)
   | otherwise = newPosWorld
   where
     piece = Maybe.fromJust $ getPiece pw
-    startNode = (pw, Maybe.fromJust . getRace $ pw)
-    isFinishNode (pw, startRace) = isEnemy (Just startRace) $ getRace pw
-    preferredNextPos = (!! 1) . map fst <$> shortestPathBool startNode isFinishNode
+    preferredNextPos = (!! 1) `fmap` pathfind pw
     newPosWorld =
       case preferredNextPos of
         Nothing -> pw
@@ -201,9 +208,11 @@ playRound world = rec world piecePositions
     piecePositions = sort . filter (Maybe.isJust . getRace . (, world)) $ Map.keys world
     rec :: World -> [Pos] -> (World, RoundStatus)
     rec world []
+      | Trace.trace "Hello" False = undefined
       | isGameOver world = (world, GameOverCompleteRound)
       | otherwise = (world, GameContinues)
     rec world (pos:rest)
+      | Trace.trace "World" False = undefined
       | isGameOver world = (world, GameOverIncompleteRound)
       | otherwise = rec (play world pos) rest
 
