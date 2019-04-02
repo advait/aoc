@@ -153,7 +153,8 @@ spec = do
     let l4 = "#G######"
     let l5 = "########"
     let world = readWorld $ intercalate "\n" [l1, l2, l3, l4, l5]
-    it "Chooses to go right instead of right" $ do
+    it "bfs chooses right" $ (map fst <$> bfs (Pos 3 1, world)) `shouldBe` Just [Pos 3 1, Pos 4 1, Pos 5 1, Pos 6 1]
+    it "Chooses to go right instead of left" $ do
       let world' = play world (Pos 3 1)
       getPiece (Pos 2 1, world') `shouldBe` Nothing
       getPiece (Pos 4 1, world') `shouldBe` Just (Humanoid Elf 200 3)

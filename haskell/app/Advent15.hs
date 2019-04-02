@@ -1,15 +1,16 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TupleSections #-}
 
 module Advent15 where
 
-import           Data.List
-import qualified Data.Map    as Map
-import qualified Data.Maybe  as Maybe
-import qualified Data.Set    as Set
+import Data.List
+import Control.Exception
+import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
+import qualified Data.Set as Set
 import qualified Debug.Trace as Trace
-import           Pathfinding
-import qualified System.IO   as IO
+import Pathfinding
+import qualified System.IO as IO
 
 -- (X, Y) cartesian coordinates
 data Pos =
@@ -30,6 +31,12 @@ data Race
   | Elf
   deriving (Show, Eq, Ord)
 
+-- Returns whether the two pieces are enemies
+isEnemy :: Maybe Race -> Maybe Race -> Bool
+isEnemy (Just Goblin) (Just Elf) = True
+isEnemy (Just Elf) (Just Goblin) = True
+isEnemy _ _ = False
+
 -- Represents a non-empty thing in the world
 data Piece
   = Wall
@@ -44,7 +51,7 @@ readPiece '#' = Just Wall
 readPiece 'G' = Just $ Humanoid Goblin 200 3
 readPiece 'E' = Just $ Humanoid Elf 200 3
 readPiece '.' = Nothing
-readPiece c   = error $ "Invalid piece: " ++ [c]
+readPiece c = error $ "Invalid piece: " ++ [c]
 
 -- The state of the world where Pieces exist at Positions
 type World = Map.Map Pos Piece
@@ -76,10 +83,10 @@ showWorld world = rec 0
           intercalate ", " . map showPieceLegend . Maybe.mapMaybe getPiece . filter (Maybe.isJust . getRace) $ pws
         rowString = dungeonMap ++ "  " ++ pieceLegend ++ "\n"
     showPieceShort :: Maybe Piece -> Char
-    showPieceShort (Just Wall)                  = '#'
+    showPieceShort (Just Wall) = '#'
     showPieceShort (Just (Humanoid Goblin _ _)) = 'G'
-    showPieceShort (Just (Humanoid Elf _ _))    = 'E'
-    showPieceShort _                            = '.'
+    showPieceShort (Just (Humanoid Elf _ _)) = 'E'
+    showPieceShort _ = '.'
     showPieceLegend :: Piece -> String
     showPieceLegend (Humanoid Goblin h _) = "G(" ++ show h ++ ")"
     showPieceLegend (Humanoid Elf h _) = "E(" ++ show h ++ ")"
@@ -98,21 +105,21 @@ getRace :: PosWorld -> Maybe Race
 getRace pw =
   case getPiece pw of
     Just (Humanoid r _ _) -> Just r
-    _                     -> Nothing
+    _ -> Nothing
 
 -- Returns the attack power of an elf or a goblin
 getAttackPower :: PosWorld -> Int
 getAttackPower pw =
   case getPiece pw of
     Just (Humanoid _ _ p) -> p
-    _                     -> error "Wall does not have attack power"
+    _ -> error "Wall does not have attack power"
 
 -- Returns the health of an elf or a goblin or 0 if the PosWorld is empty or contains a Wall
 getHealth :: PosWorld -> Int
 getHealth pw =
   case getPiece pw of
     Just (Humanoid _ h _) -> h
-    _                     -> 0
+    _ -> 0
 
 -- Updates the health of the given piece
 updateHealth :: Int -> PosWorld -> Piece
@@ -127,6 +134,21 @@ allNeighbors (Pos x y, world) = map (, world) posNeighbors
   where
     posNeighbors = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]
 
+-- Returns adjacent neighbors that are empty
+emptyNeighbors :: PosWorld -> [PosWorld]
+emptyNeighbors = filter (Maybe.isNothing . getPiece) . allNeighbors
+
+-- Returns adjacent neighbors that are enemies of the given race
+neighborsEnemyOf :: Race -> PosWorld -> [PosWorld]
+neighborsEnemyOf race = filter (isEnemy (Just race) . getRace) . allNeighbors
+
+-- Returns adjacent neighbors that are enemies of the current PosWorld's race.
+enemyNeighbors :: PosWorld -> [PosWorld]
+enemyNeighbors pw =
+  case getRace pw of
+    Nothing -> []
+    Just race -> neighborsEnemyOf race pw
+
 -- Represents a pathfinding view of the world from the perspective of the given race. A search from the perspective
 -- of a goblin will be different than a search from the perspective of an elf (i.e. goblins will find other goblin
 -- PosWorlds as non-empty while it will find elf tiles as traversable). As a result, we must note the Race of the
@@ -138,6 +160,47 @@ instance Node SearchNode where
     where
       enemyOrEmpty pw = isEnemy (Just startRace) (getRace pw) || Maybe.isNothing (getPiece pw)
 
+-- Compares two paths, preferring shorter paths first, then for paths that are equal length, prefers paths whose
+-- final node comes first in reading order.
+comparePaths :: [PosWorld] -> [PosWorld] -> Ordering
+comparePaths p1 p2
+  | len1 == 0 && (Trace.trace "Wtf" True) = error "boom"
+  | len2 == 0 && (Trace.trace "Wtf" True) = error "boom"
+  | len1 == len2 = compare (last p1) (last p2)
+  | otherwise = compare len1 len2
+  where
+    len1 = length p1
+    len2 = length p2
+
+-- Performs breadth first search starting from the first PosWorld, providing the shortest path to an enemy if one
+-- exists or Nothing if no such path exists.
+bfs :: PosWorld -> Maybe [PosWorld]
+bfs pw@(pos, world) = fin
+  where
+    fin = bestPath (rec Set.empty [[pw]] [] [])
+    bestPath :: [[PosWorld]] -> Maybe [PosWorld]
+    bestPath [] = Nothing
+    bestPath paths = Just $ minimumBy comparePaths paths
+    startRace = Maybe.fromJust . getRace $ pw
+    allEnemies = filter (isEnemy (getRace pw) . getRace) . map (, world) . Map.keys $ world
+    enemyAttackOptions = Set.fromList . concatMap emptyNeighbors $ allEnemies -- Squares where we can attack enemies
+    rec :: Set.Set PosWorld -> [[PosWorld]] -> [[PosWorld]] -> [[PosWorld]] -> [[PosWorld]]
+    rec _ [] [] ret = ret -- Exhausted our search space
+    rec seen [] nextDepthQueue ret -- Exhausted our current depth
+      | not . null $ ret = ret -- Exhausted current depth and found hit(s), return them
+      | otherwise = rec seen nextDepthQueue [] [] -- Exhausted current depth with no hits, move to next depth
+    rec seen (curPath:curDepthQueue) nextDepthQueue ret
+      | assert (not (null curPath)) False = undefined
+      | Set.member curNode seen = rec seen curDepthQueue nextDepthQueue ret -- Already seen current node, skip
+      | Set.member curNode enemyAttackOptions = rec newSeen curDepthQueue nextDepthQueue (curPath : ret) -- Current path is a hit, note it in ret but continue bfs for this depth
+      | otherwise = rec newSeen curDepthQueue (nextDepthQueue ++ newPaths) ret -- Expand nodes from neighbors
+      where
+        curNode = last curPath
+        neighbors =
+          sort . filter (`Set.notMember` seen) $ (emptyNeighbors curNode ++ neighborsEnemyOf startRace curNode)
+        newPaths = map (\n -> curPath ++ [n]) neighbors
+        newSeen = Set.insert curNode seen
+
 -- Attempts to find a move path for the given PosWorld, seeking the closest enemy.
 pathfind :: PosWorld -> Maybe [PosWorld]
 pathfind pw@(pos, world) = preferredPath
@@ -147,24 +210,16 @@ pathfind pw@(pos, world) = preferredPath
     startNode = (pw, startRace)
     preferredPath = map fst <$> shortestPathBool startNode isFinishNode
 
--- Returns whether the two pieces are enemies
-isEnemy :: Maybe Race -> Maybe Race -> Bool
-isEnemy (Just Goblin) (Just Elf) = True
-isEnemy (Just Elf) (Just Goblin) = True
-isEnemy _ _                      = False
-
--- Returns adjacent neighbors that are enemies
-enemyNeighbors :: PosWorld -> [PosWorld]
-enemyNeighbors pw = filter (isEnemy (getRace pw) . getRace) $ allNeighbors pw
-
 -- If possible, performs an attack turn, reducing the hitpoints of an enemy, removing it if it dies.
 -- Returns the updated world. Performs a noop if no attack is possible.
 attack :: PosWorld -> World
 attack pw@(pos, world)
+  | Maybe.isNothing myRace = world -- Not an attacker, noop
   | null . enemyNeighbors $ pw = world -- No enemies nearby, noop
   | newHealth <= 0 = Map.delete enemyPos world
   | otherwise = Map.insert enemyPos newPiece world
   where
+    myRace = getRace pw
     compareByHealth pw1 pw2 = compare (getHealth pw1) (getHealth pw2)
     weakestEnemy@(enemyPos, _) = minimumBy compareByHealth $ enemyNeighbors pw
     newHealth = getHealth weakestEnemy - getAttackPower pw
@@ -175,10 +230,13 @@ attack pw@(pos, world)
 move :: PosWorld -> PosWorld
 move pw@(pos, world)
   | not . null . enemyNeighbors $ pw = pw -- No moves necessary, we can attack
+  | Maybe.isJust bestPath &&
+      (length . Maybe.fromJust $ bestPath) <= 1 && Trace.trace ("Bad path: " ++ show bestPath) False = undefined
   | otherwise = newPosWorld
   where
     piece = Maybe.fromJust $ getPiece pw
-    preferredNextPos = (!! 1) `fmap` pathfind pw
+    bestPath = bfs pw
+    preferredNextPos = (!! 1) <$> bfs pw
     newPosWorld =
       case preferredNextPos of
         Nothing -> pw
@@ -208,11 +266,9 @@ playRound world = rec world piecePositions
     piecePositions = sort . filter (Maybe.isJust . getRace . (, world)) $ Map.keys world
     rec :: World -> [Pos] -> (World, RoundStatus)
     rec world []
-      | Trace.trace "Hello" False = undefined
       | isGameOver world = (world, GameOverCompleteRound)
       | otherwise = (world, GameContinues)
     rec world (pos:rest)
-      | Trace.trace "World" False = undefined
       | isGameOver world = (world, GameOverIncompleteRound)
       | otherwise = rec (play world pos) rest
 
@@ -240,7 +296,7 @@ updateElfAttackPower power world = newWorld
   where
     updateOne :: Piece -> Piece
     updateOne (Humanoid Elf health _) = Humanoid Elf health power
-    updateOne other                   = other
+    updateOne other = other
     newWorld = Map.map updateOne world
 
 -- Increments the elf attack power until an entire round happens where they don't die.
