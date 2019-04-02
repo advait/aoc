@@ -158,14 +158,16 @@ comparePaths p1 p2
     len1 = length p1
     len2 = length p2
 
+-- Returns the minimum according to the ordering or Nothing if given an empty list.
+minimumOrNothing :: (a -> a -> Ordering) -> [a] -> Maybe a
+minimumOrNothing f [] = Nothing
+minimumOrNothing f l = Just $ minimumBy f l
+
 -- Performs breadth first search starting from the first PosWorld, providing the shortest path to an enemy if one
 -- exists or Nothing if no such path exists.
 bfs :: PosWorld -> Maybe [PosWorld]
-bfs pw@(pos, world) = bestPath (rec Set.empty [[pw]] [] [])
+bfs pw@(pos, world) = minimumOrNothing comparePaths (rec Set.empty [[pw]] [] [])
   where
-    bestPath :: [[PosWorld]] -> Maybe [PosWorld]
-    bestPath []    = Nothing
-    bestPath paths = Just $ minimumBy comparePaths paths
     startRace = Maybe.fromJust . getRace $ pw
     allEnemies = filter (isEnemy (getRace pw) . getRace) . map (, world) . Map.keys $ world
     enemyAttackOptions = Set.fromList . concatMap emptyNeighbors $ allEnemies -- Squares where we can attack enemies
