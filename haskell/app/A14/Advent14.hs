@@ -1,4 +1,4 @@
-module Advent14 where
+module A14.Advent14 where
 
 import qualified Data.IntMap as IntMap
 import qualified Data.Maybe  as Maybe

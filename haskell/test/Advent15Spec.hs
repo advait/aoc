@@ -1,12 +1,11 @@
 module Advent15Spec where
 
-import           Advent15
+import           A15.Advent15
 import           Data.List
 import qualified Data.Map    as Map
 import qualified Data.Maybe  as Maybe
 import qualified Data.Set    as Set
 import qualified Debug.Trace as Trace
-import           Pathfinding
 import           Test.Hspec
 
 spec :: Spec
@@ -169,6 +168,3 @@ spec = do
       let world' = play world (Pos 3 1)
       getPiece (Pos 2 1, world') `shouldBe` Just (Humanoid Elf 200 3)
       getPiece (Pos 3 2, world') `shouldBe` Nothing
-
-instance Node Pos where
-  neighbors (Pos x y) = sort [Pos (x - 1) y, Pos (x + 1) y, Pos x (y - 1), Pos x (y + 1)]

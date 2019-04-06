@@ -1,6 +1,6 @@
 module Advent9Spec where
 
-import qualified Advent9
+import qualified A9.Advent9    as Advent9
 import           Data.Foldable
 import qualified Data.IntMap   as IntMap
 import           Data.List

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections     #-}
 
-module Advent15 where
+module A15.Advent15 where
 
 import           Control.Exception
 import           Data.List
@@ -251,8 +251,8 @@ playRound world = rec world piecePositions
 -- Steps through all rounds until all Elves are dead, returning the number of rounds played.
 playAllRounds :: Int -> World -> (Int, World)
 playAllRounds round world
-  | Trace.trace ("Round: " ++ show round) False = undefined
-  | Trace.trace ("World: \n" ++ showWorld world) False = undefined
+--  | Trace.trace ("Round: " ++ show round) False = undefined
+--  | Trace.trace ("World: \n" ++ showWorld world) False = undefined
   | otherwise =
     case playRound world of
       (newWorld, GameContinues) -> playAllRounds (round + 1) newWorld
@@ -283,9 +283,9 @@ findMinimumPower startWorld = rec 4 startWorld
     startingElfCount = getElfCount startWorld
     rec :: Int -> World -> Int
     rec power world
-      | Trace.trace ("Trying power: " ++ show power) False = undefined
-      | Trace.trace ("Elf counts: " ++ show startingElfCount ++ " " ++ (show . getElfCount $ finalWorld)) False =
-        undefined
+      -- | Trace.trace ("Trying power: " ++ show power) False = undefined
+      -- | Trace.trace ("Elf counts: " ++ show startingElfCount ++ " " ++ (show . getElfCount $ finalWorld)) False =
+      -- undefined
       | getElfCount finalWorld == startingElfCount = rounds * totalHealth
       | otherwise = rec (power + 1) world
       where

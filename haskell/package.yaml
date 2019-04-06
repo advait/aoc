@@ -17,93 +17,67 @@ description:         Please see the README on GitHub at <https://github.com/adva
 dependencies:
   - base >= 4.7 && < 5
 
-library:
-  source-dirs: app
-  dependencies:
-    - containers
-    - deque
-    - QuickCheck
-
 executables:
   advent1:
     main:                Advent1.hs
-    source-dirs:         app
+    source-dirs:         app/A1
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent1
+      - -main-is A1.Advent1
     dependencies:
       - containers
-      - deque
   advent9:
     main:                Advent9.hs
-    source-dirs:         app
+    source-dirs:         app/A9
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent9
+      - -main-is A9.Advent9
     dependencies:
       - containers
       - deque
   advent12:
     main:                Advent12.hs
-    source-dirs:         app
+    source-dirs:         app/A12
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent12
+      - -main-is A12.Advent12
     dependencies:
       - containers
-      - deque
   advent13:
     main:                Advent13.hs
-    source-dirs:         app
+    source-dirs:         app/A13
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent13
+      - -main-is A13.Advent13
     dependencies:
       - containers
-      - deque
   advent14:
     main:                Advent14.hs
-    source-dirs:         app
+    source-dirs:         app/A14
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent14
+      - -main-is A14.Advent14
     dependencies:
-      - array
       - containers
-      - deque
   advent15:
     main:                Advent15.hs
-    source-dirs:         app
+    source-dirs:         app/A15
     ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
-      - -fwarn-incomplete-patterns
-      - -main-is Advent15
+      - -main-is A15.Advent15
     dependencies:
-      - array
       - containers
-      - deque
+  advent16:
+    main:                Advent16.hs
+    source-dirs:         app/A16
+    ghc-options:
+      - -main-is A16.Advent16
+    dependencies:
+      - containers
+      - mtl
 
 tests:
   aoc-test:
     defaults: hspec/hspec@master
+    source-dirs:
+      - app
+      - test
+    main: Main.hs
     dependencies:
-      - aoc
       - containers
       - deque
+      - mtl

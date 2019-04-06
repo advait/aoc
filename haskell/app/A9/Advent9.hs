@@ -1,4 +1,4 @@
-module Advent9 where
+module A9.Advent9 where
 
 import qualified Data.IntMap as IntMap
 import           Data.Maybe

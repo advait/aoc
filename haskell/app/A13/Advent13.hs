@@ -1,4 +1,4 @@
-module Advent13 where
+module A13.Advent13 where
 
 import qualified Data.List   as List
 import qualified Data.Map    as Map

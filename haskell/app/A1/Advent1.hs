@@ -1,4 +1,4 @@
-module Advent1 where
+module A1.Advent1 where
 
 import qualified Data.IntSet as IntSet
 import           Prelude
