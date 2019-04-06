@@ -50,7 +50,7 @@ data Opcode
   deriving (Bounded, Enum)
 
 -- List of all opcodes
-allOpcodes = [minBound..maxBound] :: [Opcode]
+allOpcodes = [minBound .. maxBound] :: [Opcode]
 
 -- The input parameters for each of the Opcodes
 type Params = (Int, Int, Int)
@@ -90,24 +90,24 @@ boolToInt :: Bool -> Int
 boolToInt True  = 1
 boolToInt False = 0
 
--- Perform an instruction
-instr :: Opcode -> DeepState -> Regs
-instr Addr ds = setC ds (rA ds + rB ds)
-instr Addi ds = setC ds (rA ds + b ds)
-instr Mulr ds = setC ds (rA ds * rB ds)
-instr Muli ds = setC ds (rA ds * b ds)
-instr Banr ds = setC ds (rA ds .&. rB ds)
-instr Bani ds = setC ds (rA ds .&. b ds)
-instr Borr ds = setC ds (rA ds .|. rB ds)
-instr Bori ds = setC ds (rA ds .|. b ds)
-instr Setr ds = setC ds (rA ds)
-instr Seti ds = setC ds (a ds)
-instr Gtir ds = setC ds (boolToInt $ a ds > rB ds)
-instr Gtri ds = setC ds (boolToInt $ rA ds > b ds)
-instr Gtrr ds = setC ds (boolToInt $ rA ds > rB ds)
-instr Eqir ds = setC ds (boolToInt $ a ds == rB ds)
-instr Eqri ds = setC ds (boolToInt $ rA ds == b ds)
-instr Eqrr ds = setC ds (boolToInt $ rA ds == rB ds)
+-- Perform an instruction, setting register C with the given value
+instr :: Opcode -> DeepState -> Int
+instr Addr ds = rA ds + rB ds
+instr Addi ds = rA ds + b ds
+instr Mulr ds = rA ds * rB ds
+instr Muli ds = rA ds * b ds
+instr Banr ds = rA ds .&. rB ds
+instr Bani ds = rA ds .&. b ds
+instr Borr ds = rA ds .|. rB ds
+instr Bori ds = rA ds .|. b ds
+instr Setr ds = rA ds
+instr Seti ds = a ds
+instr Gtir ds = boolToInt $ a ds > rB ds
+instr Gtri ds = boolToInt $ rA ds > b ds
+instr Gtrr ds = boolToInt $ rA ds > rB ds
+instr Eqir ds = boolToInt $ a ds == rB ds
+instr Eqri ds = boolToInt $ rA ds == b ds
+instr Eqrr ds = boolToInt $ rA ds == rB ds
 
 -- Represents an example in part A
 data ExampleA = ExampleA
@@ -139,7 +139,9 @@ exampleAParser = do
 exampleAMatch :: ExampleA -> Opcode -> Bool
 exampleAMatch ea op = afterRegs ea == afterRegs'
   where
-    afterRegs' = instr op (toDS (params ea) (beforeRegs ea))
+    result = instr op (toDS (params ea) (beforeRegs ea)) -- Evaluate operation
+    (_, _, c) = params ea -- Destination register
+    afterRegs' = setReg result c (beforeRegs ea) -- Store result in destination
 
 partA :: [ExampleA] -> Int
 partA = length . filter (>= 3) . map (\ea -> length . filter (exampleAMatch ea) $ allOpcodes)
