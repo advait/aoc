@@ -47,6 +47,10 @@ data Opcode
   | Eqir
   | Eqri
   | Eqrr
+  deriving (Bounded, Enum)
+
+-- List of all opcodes
+allOpcodes = [minBound..maxBound] :: [Opcode]
 
 -- The input parameters for each of the Opcodes
 type Params = (Int, Int, Int)
@@ -60,6 +64,7 @@ data DeepState = DeepState
   , setC                   :: Int -> Regs
   }
 
+-- Interprets a Params and Regs as a DeepState
 toDS :: Params -> Regs -> DeepState
 toDS (a, b, c) regs@(r0, r1, r2, r3) =
   DeepState
@@ -70,9 +75,9 @@ toDS (a, b, c) regs@(r0, r1, r2, r3) =
     , r1 = r1
     , r2 = r2
     , r3 = r3
-    , rA = getReg a regs
-    , rB = getReg b regs
-    , rC = getReg c regs
+    , rA = getReg a regs -- Register indicated by param A
+    , rB = getReg b regs -- Register indicated by param B
+    , rC = getReg c regs -- Register indicated by param C
     , set0 = (, r1, r2, r3)
     , set1 = (r0, , r2, r3)
     , set2 = (r0, r1, , r3)
@@ -104,6 +109,7 @@ instr Eqir ds = setC ds (boolToInt $ a ds == rB ds)
 instr Eqri ds = setC ds (boolToInt $ rA ds == b ds)
 instr Eqrr ds = setC ds (boolToInt $ rA ds == rB ds)
 
+-- Represents an example in part A
 data ExampleA = ExampleA
   { beforeRegs :: Regs
   , opNum      :: Int
@@ -111,6 +117,7 @@ data ExampleA = ExampleA
   , afterRegs  :: Regs
   }
 
+-- Parses the input as a single ExampleA
 exampleAParser :: ReadP ExampleA
 exampleAParser = do
   _ <- string "Before: ["
@@ -128,5 +135,17 @@ exampleAParser = do
       , afterRegs = (head afterRegs, afterRegs !! 1, afterRegs !! 2, afterRegs !! 3)
       }
 
+-- Returns whether the example conforms to the given opcode
+exampleAMatch :: ExampleA -> Opcode -> Bool
+exampleAMatch ea op = afterRegs ea == afterRegs'
+  where
+    afterRegs' = instr op (toDS (params ea) (beforeRegs ea))
+
+partA :: [ExampleA] -> Int
+partA = length . filter (>= 3) . map (\ea -> length . filter (exampleAMatch ea) $ allOpcodes)
+
 main :: IO ()
-main = undefined
+main = do
+  input <- getContents
+  let (exampleAs, remaining) = last (readP_to_S (many exampleAParser) input)
+  print $ partA exampleAs
