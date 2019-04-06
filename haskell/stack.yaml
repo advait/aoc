@@ -5,9 +5,3 @@ extra-deps: []
 resolver: lts-13.9
 ghc-options:
   "$everything": -threaded -rtsopts -with-rtsopts=-N -fwarn-incomplete-patterns
-
-#  - -threaded
-#  - -rtsopts
-#  - -with-rtsopts=-N
-#  - -fwarn-incomplete-patterns
-#  - -main-is A1.Advent1

@@ -5,7 +5,9 @@ module A16.Advent16 where
 
 import qualified Control.Monad.Reader         as Reader
 import           Data.Bits
+import           Data.Char
 import           Data.List                    (isPrefixOf)
+import           Parsers
 import           Text.ParserCombinators.ReadP
 
 -- Represents the CPU state with four registers
@@ -103,41 +105,28 @@ instr Eqri ds = setC ds (boolToInt $ rA ds == b ds)
 instr Eqrr ds = setC ds (boolToInt $ rA ds == rB ds)
 
 data ExampleA = ExampleA
-  { before :: Regs
-  , opNum  :: Int
-  , params :: Params
-  , after  :: Regs
+  { beforeRegs :: Regs
+  , opNum      :: Int
+  , params     :: Params
+  , afterRegs  :: Regs
   }
-
-isDigit c = c >= '0' && c <= '9'
-
-number = satisfy isDigit
-
-charToInt c = (read :: String -> Int) [c]
 
 exampleAParser :: ReadP ExampleA
 exampleAParser = do
   _ <- string "Before: ["
-  beforeRegs <- parseNSep 4 ", "
+  beforeRegs <- repeatedNReader 4 ", " intReader
   _ <- string "]\n"
-  params <- parseNSep 4 " "
+  params <- repeatedNReader 4 " " intReader
   _ <- string "\nAfter:  ["
-  afterRegs <- parseNSep 4 ", "
+  afterRegs <- repeatedNReader 4 ", " intReader
   _ <- string "]\n\n"
   return
     ExampleA
-      { before = (head beforeRegs, beforeRegs !! 1, beforeRegs !! 2, beforeRegs !! 3)
+      { beforeRegs = (head beforeRegs, beforeRegs !! 1, beforeRegs !! 2, beforeRegs !! 3)
       , opNum = head params
       , params = (params !! 1, params !! 2, params !! 3)
-      , after = (head afterRegs, afterRegs !! 1, afterRegs !! 2, afterRegs !! 3)
+      , afterRegs = (head afterRegs, afterRegs !! 1, afterRegs !! 2, afterRegs !! 3)
       }
-  where
-    parseNSep n sep =
-      count
-        n
-        (do ret <- charToInt <$> satisfy isDigit
-            _ <- optional $ string sep
-            return ret)
 
 main :: IO ()
 main = undefined

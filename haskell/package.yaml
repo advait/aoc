@@ -17,6 +17,9 @@ description:         Please see the README on GitHub at <https://github.com/adva
 dependencies:
   - base >= 4.7 && < 5
 
+library:
+  source-dirs: lib
+
 executables:
   advent1:
     main:                Advent1.hs
@@ -67,6 +70,7 @@ executables:
     ghc-options:
       - -main-is A16.Advent16
     dependencies:
+      - aoc
       - containers
       - mtl
 
@@ -78,6 +82,7 @@ tests:
       - test
     main: Main.hs
     dependencies:
+      - aoc
       - containers
       - deque
       - mtl
