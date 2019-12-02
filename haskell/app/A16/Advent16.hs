@@ -1,4 +1,5 @@
 {-# LANGUAGE InstanceSigs  #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
 
 module A16.Advent16 where
@@ -7,6 +8,8 @@ import qualified Control.Monad.Reader         as Reader
 import           Data.Bits
 import           Data.Char
 import           Data.List                    (isPrefixOf)
+import qualified Data.Map                     as Map
+import qualified Data.Set                     as Set
 import           Parsers
 import           Text.ParserCombinators.ReadP
 
@@ -47,7 +50,7 @@ data Opcode
   | Eqir
   | Eqri
   | Eqrr
-  deriving (Bounded, Enum)
+  deriving (Bounded, Enum, Eq, Show, Ord)
 
 -- List of all opcodes
 allOpcodes = [minBound .. maxBound] :: [Opcode]
@@ -90,7 +93,7 @@ boolToInt :: Bool -> Int
 boolToInt True  = 1
 boolToInt False = 0
 
--- Perform an instruction, setting register C with the given value
+-- Perform an instruction, returning the value that should be stored in the output register
 instr :: Opcode -> DeepState -> Int
 instr Addr ds = rA ds + rB ds
 instr Addi ds = rA ds + b ds
@@ -143,11 +146,60 @@ exampleAMatch ea op = afterRegs ea == afterRegs'
     (_, _, c) = params ea -- Destination register
     afterRegs' = setReg result c (beforeRegs ea) -- Store result in destination
 
+-- Solves Problem A, returning the number of examples that match three or more opcodes
 partA :: [ExampleA] -> Int
 partA = length . filter (>= 3) . map (\ea -> length . filter (exampleAMatch ea) $ allOpcodes)
+
+-- Represents a mapping from Opcodes to the set of Op Ints that can possibly represent that Opcode
+type Constraints = Map.Map Opcode (Set.Set Int)
+
+-- Deletes all the items contained in l from the Set
+deleteAll ::
+     forall a l. (Ord a, Foldable l)
+  => l a
+  -> Set.Set a
+  -> Set.Set a
+deleteAll items s = foldl (flip Set.delete) s items
+
+-- Propagate constraints, greedily eliminating candidate Op Ints.
+propConstraints :: Constraints -> Constraints
+propConstraints c
+  | c == c' = c -- Constraint propagation did not yield any pruning
+  | otherwise = propConstraints c'
+  where
+    c' = propConstraintsOnce c
+    propConstraintsOnce :: Constraints -> Constraints
+    propConstraintsOnce c = Map.map (deleteAll solved) c
+      where
+        solved = foldl1 Set.union . Map.elems . Map.filter ((== 1) . length) $ c
+
+processExamplesOnce :: [ExampleA] -> Constraints -> Constraints
+processExamplesOnce [] c = c
+processExamplesOnce (ea:tail) c = propConstraints newConstraints
+  where
+    elligibleOpcodes = Map.keys . Map.filter (Set.member (opNum ea)) $ c
+    failingOpcodes = filter (not . exampleAMatch ea) elligibleOpcodes
+    newConstraints = foldl (deleteOpnum (opNum ea)) c failingOpcodes
+    deleteOpnum opnum c opcode = Map.update (Just . Set.delete opnum) opcode c
+
+processExamples :: [ExampleA] -> Constraints -> Constraints
+processExamples eas c
+  | allSolved c = c -- Fully constrained!
+  | c == c' = error $ "Not enough constraints, Opnums ambiguous: " ++ show c
+  | otherwise = processExamples eas c'
+  where
+    c' = processExamplesOnce eas c
+    allSolved = all ((== 1) . Set.size)
+
+partB :: [ExampleA] -> Constraints
+partB eas = processExamples eas startingConstraints
+  where
+    startingConstraints = Map.fromList . map (, Set.fromList [0 .. 15]) $ allOpcodes
+
 
 main :: IO ()
 main = do
   input <- getContents
   let (exampleAs, remaining) = last (readP_to_S (many exampleAParser) input)
   print $ partA exampleAs
+  print $ partB exampleAs
