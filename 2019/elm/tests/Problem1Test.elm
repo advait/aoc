@@ -7,7 +7,7 @@ import Test exposing (..)
 
 suite : Test
 suite =
-    describe "Problem1a"
+    describe "Problem 1"
         [ test "a" <| \_ -> Expect.equal 3239503 (Problem1.puzzleA input)
         , test "b" <| \_ -> Expect.equal 4856390 (Problem1.puzzleB input)
         , describe "b test cases"

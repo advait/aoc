@@ -4,7 +4,7 @@ import List
 import String
 
 
-{-| Reads the input string, parses the lines as integers, and returns a List Int
+{-| Reads the input string, parses the lines as integers, and returns a List Int.
 -}
 readInts : String -> List Int
 readInts input =
