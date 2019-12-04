@@ -8,15 +8,22 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "Problem 2"
-        [ test "a" <| \_ -> Expect.equal (Just 1) (Problem2.problemA modifiedInput |> List.head)
+        [ test "a" <| \_ -> Expect.equal 5482655 (Problem2.problemA modifiedInput)
         , describe "a test cases"
-            [ test "1" <| \_ -> Expect.equal [ 2, 0, 0, 0, 99 ] (Problem2.problemA "1,0,0,0,99")
-            , test "2" <| \_ -> Expect.equal [ 2, 3, 0, 6, 99 ] (Problem2.problemA "2,3,0,3,99")
-            , test "3" <| \_ -> Expect.equal [ 2, 4, 4, 5, 99, 9801 ] (Problem2.problemA "2,4,4,5,99,0")
-            , test "4" <| \_ -> Expect.equal [ 30, 1, 1, 4, 2, 5, 6, 0, 99 ] (Problem2.problemA "1,1,1,4,99,5,6,0,99")
-            , test "5" <| \_ -> Expect.equal [ 30, 1, 1, 4, 2, 5, 6, 0, 99 ] (Problem2.problemA "1,1,1,4,99,5,6,0,99")
+            [ test "1" <| \_ -> expectAfterExecHalt [ 2, 0, 0, 0, 99 ] "1,0,0,0,99"
+            , test "2" <| \_ -> expectAfterExecHalt [ 2, 3, 0, 6, 99 ] "2,3,0,3,99"
+            , test "3" <| \_ -> expectAfterExecHalt [ 2, 4, 4, 5, 99, 9801 ] "2,4,4,5,99,0"
+            , test "4" <| \_ -> expectAfterExecHalt [ 30, 1, 1, 4, 2, 5, 6, 0, 99 ] "1,1,1,4,99,5,6,0,99"
+            , test "5" <| \_ -> expectAfterExecHalt [ 30, 1, 1, 4, 2, 5, 6, 0, 99 ] "1,1,1,4,99,5,6,0,99"
             ]
+        , test "b" <| \_ -> Expect.equal 4967 (Problem2.problemB 19690720 input)
         ]
+
+
+{-| Executes all instructions given a start state and asserts that the memory was as given.
+-}
+expectAfterExecHalt finalMem start =
+    Expect.equal finalMem (start |> Problem2.inputToComputer |> Problem2.execUntilHalt |> .memory)
 
 
 input =

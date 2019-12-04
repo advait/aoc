@@ -28,3 +28,10 @@ concatMaybes maybes =
 
         (Just a) :: tail ->
             a :: concatMaybes tail
+
+
+{-| Return all unique the two-tuple permutations of items in the input, allowing for duplicates.
+-}
+permutations2 : List a -> List ( a, a )
+permutations2 input =
+    input |> List.concatMap (\first -> input |> List.map (\second -> ( first, second )))

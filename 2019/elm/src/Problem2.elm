@@ -10,6 +10,20 @@ type alias Computer =
     }
 
 
+{-| Creates a new computer with an iPtr of 0.
+-}
+newComputer : List Int -> Computer
+newComputer mem =
+    { memory = mem, iPtr = 0 }
+
+
+{-| Returns a new computer with the given noun and verb replaced.
+-}
+withNewNounAndVerb : Int -> Int -> Computer -> Computer
+withNewNounAndVerb noun verb comp =
+    comp.memory |> listSetAt 1 noun |> listSetAt 2 verb |> newComputer
+
+
 {-| Sets the ith element of the list ot the given value, returning the original list if it is too short.
 -}
 listSetAt : Int -> a -> List a -> List a
@@ -22,11 +36,7 @@ listSetAt indexToSet value list =
             else
                 originalValue
     in
-    if indexToSet > (list |> List.length) then
-        Debug.log ("Setting invalid memory location " ++ String.fromInt indexToSet) list
-
-    else
-        list |> List.indexedMap overwrite
+    list |> List.indexedMap overwrite
 
 
 {-| Returns the nth item of the list or crashes if it is too short.
@@ -60,10 +70,10 @@ writeValueAndAdvance pos val comp =
     { memory = newMem, iPtr = newIPtr }
 
 
-{-| Executes an instruction, returning the state after execution.
+{-| Executes instructions, returning the state after halt.
 -}
-exec : Computer -> Computer
-exec comp =
+execUntilHalt : Computer -> Computer
+execUntilHalt comp =
     let
         readMem loc =
             comp.memory |> listGetAtWithDefault 0 loc
@@ -82,10 +92,10 @@ exec comp =
     in
     case op of
         1 ->
-            writeValueAndAdvance dest (readMem p1 + readMem p2) comp |> exec
+            writeValueAndAdvance dest (readMem p1 + readMem p2) comp |> execUntilHalt
 
         2 ->
-            writeValueAndAdvance dest (readMem p1 * readMem p2) comp |> exec
+            writeValueAndAdvance dest (readMem p1 * readMem p2) comp |> execUntilHalt
 
         99 ->
             comp
@@ -94,27 +104,46 @@ exec comp =
             Debug.log "Invalid opcode: " comp
 
 
-{-| Keeps executing until the head is Opcode 99.
+{-| Parses the program input, returning a computer.
 -}
-execUntilHalt : Computer -> Computer
-execUntilHalt comp =
-    case comp.memory |> List.head of
-        Just 99 ->
-            comp
-
-        _ ->
-            exec comp
-
-
 inputToComputer : String -> Computer
 inputToComputer input =
     let
         memory =
             input |> String.split "," |> String.join "\n" |> Util.readInts
     in
-    memory |> (\mem -> { memory = mem, iPtr = 0 })
+    memory |> newComputer
 
 
-problemA : String -> List Int
+{-| Solves Problem A.
+-}
+problemA : String -> Int
 problemA input =
-    input |> inputToComputer |> execUntilHalt |> .memory
+    input |> inputToComputer |> execUntilHalt |> .memory |> List.head |> Maybe.withDefault 0
+
+
+{-| Solves Problem B.
+-}
+problemB : Int -> String -> Int
+problemB desiredOutput input =
+    let
+        nounsAndVerbs =
+            Util.permutations2 (List.range 0 99)
+
+        execWithNounAndVerb noun verb =
+            input |> inputToComputer |> withNewNounAndVerb noun verb |> execUntilHalt |> .memory |> List.head |> Maybe.withDefault 0
+
+        rec : List ( Int, Int ) -> Int
+        rec remainingNounsAndVerbs =
+            case remainingNounsAndVerbs of
+                [] ->
+                    Debug.todo "Tried all pairs of nouns and verbs and failed"
+
+                ( noun, verb ) :: tail ->
+                    if execWithNounAndVerb noun verb == desiredOutput then
+                        100 * noun + verb
+
+                    else
+                        rec tail
+    in
+    rec nounsAndVerbs
