@@ -1,9 +1,7 @@
 module Problem3Test exposing (..)
 
 import Expect
-import Parser
 import Problem3 exposing (Dir(..))
-import Result
 import Test exposing (Test)
 import UtilTest exposing (expectParse)
 
@@ -19,10 +17,18 @@ suite =
             , Test.test "wire parser parses one up item" <| \_ -> expectParsedWire [ ( Up, 7 ) ] "U7"
             , Test.test "wire parser parses two items" <| \_ -> expectParsedWire [ ( Down, 7 ), ( Up, 0 ) ] "D7,U0"
             ]
-        , Test.test "test input 0" <| \_ -> expectParse Problem3.problemA testInput0 (Just 6)
-        , Test.test "test input 1" <| \_ -> expectParse Problem3.problemA testInput1 (Just 159)
-        , Test.test "test input 2" <| \_ -> expectParse Problem3.problemA testInput2 (Just 135)
-        , Test.test "Part A" <| \_ -> expectParse Problem3.problemA puzzleInput (Just 3247)
+        , Test.describe "Part A"
+            [ Test.test "test input 0" <| \_ -> expectParse Problem3.problemA testInput0 (Just 6)
+            , Test.test "test input 1" <| \_ -> expectParse Problem3.problemA testInput1 (Just 159)
+            , Test.test "test input 2" <| \_ -> expectParse Problem3.problemA testInput2 (Just 135)
+            , Test.test "final problem" <| \_ -> expectParse Problem3.problemA puzzleInput (Just 3247)
+            ]
+        , Test.describe "Part B"
+            [ Test.test "test input 0b" <| \_ -> expectParse Problem3.problemB testInput0 (Just 30)
+            , Test.test "test input 1b" <| \_ -> expectParse Problem3.problemB testInput1 (Just 610)
+            , Test.test "test input 2b" <| \_ -> expectParse Problem3.problemB testInput2 (Just 410)
+            , Test.test "final problem" <| \_ -> expectParse Problem3.problemB puzzleInput (Just 48054)
+            ]
         ]
 
 

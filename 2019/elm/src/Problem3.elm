@@ -1,7 +1,10 @@
 module Problem3 exposing (..)
 
+import Dict exposing (Dict)
 import Parser exposing ((|.), (|=), Parser)
 import Set
+import Tuple
+import Util
 
 
 {-| A cardinal direction to help us navigate on the wire board.
@@ -102,54 +105,89 @@ followSpan start span =
 
 {-| Follows a wire given the starting point, returning the list of points that all the spans visit.
 -}
-followWire : Point -> Wire -> List Point
-followWire start spans =
-    case spans of
-        -- Empty wire (zero spans) does not have any points
-        [] ->
-            []
+followWire : Wire -> List Point
+followWire spans =
+    let
+        -- When two spans meet in a corner, followWireFromPoints duplicates the corner. Here we remove them.
+        -- Note that we also assume that the origin point is an "elbow" and remove it here.
+        removeElbows lists =
+            lists |> List.map List.tail |> Util.concatMaybes
 
-        curSpan :: tail ->
-            let
-                points =
-                    followSpan start curSpan
+        followWireFromPoint start recSpans =
+            case recSpans of
+                -- Empty wire (zero spans) does not have any points
+                [] ->
+                    []
 
-                lastPoint =
-                    points |> List.drop ((points |> List.length) - 1) |> List.head |> Maybe.withDefault start
-            in
-            points ++ followWire lastPoint tail
+                curSpan :: tail ->
+                    let
+                        points =
+                            followSpan start curSpan
+
+                        lastPoint =
+                            points |> List.drop ((points |> List.length) - 1) |> List.head |> Maybe.withDefault start
+                    in
+                    points :: followWireFromPoint lastPoint tail
+    in
+    followWireFromPoint ( 0, 0 ) spans |> removeElbows |> List.concat
+
+
+{-| Given a wire, return a list of Point+length pairs indicating the length of the wire at the given point. Given
+that a wire can reach a point multiple times, we indicate the wire length that is the shortest at that point.
+-}
+wireLengthsAtPoints : Wire -> Dict Point Int
+wireLengthsAtPoints wire =
+    let
+        pointDict =
+            followWire wire
+                -- Note that we add 1 to the length because we want to re-include the origin point which was omitted.
+                |> List.indexedMap (\len point -> ( point, len + 1 ))
+                -- Note that we must reverse in order to overwrite keys with *smaller* wire lengths
+                |> List.reverse
+                |> Dict.fromList
+    in
+    pointDict
+
+
+{-| Given two wires, return the list of points in which they intersect.
+-}
+intersections : ( Wire, Wire ) -> List Point
+intersections wires =
+    let
+        ( p1, p2 ) =
+            Tuple.mapBoth followWire followWire wires
+    in
+    Set.intersect (Set.fromList p1) (Set.fromList p2) |> Set.toList
 
 
 {-| Returns the distance to the nearest intersection.
 -}
-intersection : ( Wire, Wire ) -> Maybe Int
-intersection wires =
+smallestIntersection : ( Wire, Wire ) -> Maybe Int
+smallestIntersection wires =
+    intersections wires |> List.map distanceFromOrigin |> List.minimum
+
+
+smallestLengthBetweenIntersections : ( Wire, Wire ) -> Maybe Int
+smallestLengthBetweenIntersections wires =
     let
-        ( w1, w2 ) =
-            wires
+        ( lengths1, lengths2 ) =
+            Tuple.mapBoth wireLengthsAtPoints wireLengthsAtPoints wires
 
-        p1 =
-            followWire ( 0, 0 ) w1
+        unsafeGet key dict =
+            case dict |> Dict.get key of
+                Nothing ->
+                    Debug.todo "Could not find key in dict"
 
-        p2 =
-            followWire ( 0, 0 ) w2
+                Just a ->
+                    a
 
-        intersections =
-            Set.intersect (Set.fromList p1) (Set.fromList p2) |> Set.toList
+        lengthAtPoint point =
+            (lengths1 |> unsafeGet point) + (lengths2 |> unsafeGet point)
 
-        -- Note that the origin will always be the first point.
-        secondItem list =
-            case list of
-                first :: second :: _ ->
-                    Just second
-
-                _ ->
-                    Nothing
-
-        smallestIntersection =
-            intersections |> List.map distanceFromOrigin |> List.sort |> secondItem
+        betweenLenghts =
+            intersections wires |> List.map lengthAtPoint
     in
-    smallestIntersection
+    betweenLenghts |> List.minimum
 
 
 {-| Wire parser is a sequence of comma-separated spans.
@@ -179,4 +217,9 @@ twoWireParser =
 
 problemA : Parser (Maybe Int)
 problemA =
-    twoWireParser |> Parser.map intersection
+    twoWireParser |> Parser.map smallestIntersection
+
+
+problemB : Parser (Maybe Int)
+problemB =
+    twoWireParser |> Parser.map smallestLengthBetweenIntersections
