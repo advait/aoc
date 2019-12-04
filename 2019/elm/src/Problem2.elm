@@ -1,18 +1,19 @@
 module Problem2 exposing (..)
 
+import Array exposing (Array)
 import List
 import Util
 
 
 type alias Computer =
-    { memory : List Int
+    { memory : Array Int
     , iPtr : Int
     }
 
 
 {-| Creates a new computer with an iPtr of 0.
 -}
-newComputer : List Int -> Computer
+newComputer : Array Int -> Computer
 newComputer mem =
     { memory = mem, iPtr = 0 }
 
@@ -21,38 +22,7 @@ newComputer mem =
 -}
 withNewNounAndVerb : Int -> Int -> Computer -> Computer
 withNewNounAndVerb noun verb comp =
-    comp.memory |> listSetAt 1 noun |> listSetAt 2 verb |> newComputer
-
-
-{-| Sets the ith element of the list ot the given value, returning the original list if it is too short.
--}
-listSetAt : Int -> a -> List a -> List a
-listSetAt indexToSet value list =
-    let
-        overwrite i originalValue =
-            if i == indexToSet then
-                value
-
-            else
-                originalValue
-    in
-    list |> List.indexedMap overwrite
-
-
-{-| Returns the nth item of the list or crashes if it is too short.
--}
-listGetAtWithDefault : a -> Int -> List a -> a
-listGetAtWithDefault default i l =
-    case l of
-        [] ->
-            default
-
-        head :: tail ->
-            if i == 0 then
-                head
-
-            else
-                listGetAtWithDefault default (i - 1) tail
+    comp.memory |> Array.set 1 noun |> Array.set 2 verb |> newComputer
 
 
 {-| Writes the given value to the given position in memory, advances the instruction pointer,
@@ -62,7 +32,7 @@ writeValueAndAdvance : Int -> Int -> Computer -> Computer
 writeValueAndAdvance pos val comp =
     let
         newMem =
-            comp.memory |> listSetAt pos val
+            comp.memory |> Array.set pos val
 
         newIPtr =
             comp.iPtr + 4
@@ -76,7 +46,7 @@ execUntilHalt : Computer -> Computer
 execUntilHalt comp =
     let
         readMem loc =
-            comp.memory |> listGetAtWithDefault 0 loc
+            comp.memory |> Array.get loc |> Maybe.withDefault 0
 
         op =
             readMem comp.iPtr
@@ -110,7 +80,7 @@ inputToComputer : String -> Computer
 inputToComputer input =
     let
         memory =
-            input |> String.split "," |> String.join "\n" |> Util.readInts
+            input |> String.split "," |> String.join "\n" |> Util.readInts |> Array.fromList
     in
     memory |> newComputer
 
@@ -119,7 +89,7 @@ inputToComputer input =
 -}
 problemA : String -> Int
 problemA input =
-    input |> inputToComputer |> execUntilHalt |> .memory |> List.head |> Maybe.withDefault 0
+    input |> inputToComputer |> execUntilHalt |> .memory |> Array.get 0 |> Maybe.withDefault 0
 
 
 {-| Solves Problem B.
@@ -131,7 +101,7 @@ problemB desiredOutput input =
             Util.permutations2 (List.range 0 99)
 
         execWithNounAndVerb noun verb =
-            input |> inputToComputer |> withNewNounAndVerb noun verb |> execUntilHalt |> .memory |> List.head |> Maybe.withDefault 0
+            input |> inputToComputer |> withNewNounAndVerb noun verb |> execUntilHalt |> .memory |> Array.get 0 |> Maybe.withDefault 0
 
         rec : List ( Int, Int ) -> Int
         rec remainingNounsAndVerbs =
