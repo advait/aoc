@@ -1,6 +1,7 @@
 module Problem2Test exposing (..)
 
 import Array
+import Computer
 import Expect exposing (Expectation)
 import Problem2
 import Test exposing (..)
@@ -24,7 +25,13 @@ suite =
 {-| Executes all instructions given a start state and asserts that the memory was as given.
 -}
 expectAfterExecHalt finalMem start =
-    Expect.equal (finalMem |> Array.fromList) (start |> Problem2.inputToComputer |> Problem2.execUntilHalt |> .memory)
+    Expect.equal
+        (finalMem |> Array.fromList)
+        (start
+            |> Computer.inputToComputer
+            |> Computer.execUntilHalt
+            |> .memory
+        )
 
 
 input =

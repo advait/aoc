@@ -8,7 +8,7 @@ import Util
 
 {-| Represents the state of the computer at any time.
 -}
-type alias Comp =
+type alias Computer =
     { memory : Array Int
     , iPtr : Int
     , input : Int
@@ -25,7 +25,7 @@ type alias Loc =
 {-| Given the state of the computer, read the current Op, returning Nothing if the iPtr points off memory, or the
 opcode is invalid.
 -}
-readOp : Comp -> Maybe LogicalOp
+readOp : Computer -> Maybe LogicalOp
 readOp comp =
     let
         readMem : Loc -> Maybe Int
@@ -125,7 +125,7 @@ execOp op =
             [ AppendOutput dest, AddIPtr 2 ]
 
 
-execStateT : StateT -> Comp -> Comp
+execStateT : StateT -> Computer -> Computer
 execStateT stateT comp =
     case stateT of
         Store val dest ->
@@ -146,7 +146,7 @@ execStateT stateT comp =
 
 {-| Parses the program input, returning a computer.
 -}
-inputToComputer : String -> Comp
+inputToComputer : String -> Computer
 inputToComputer input =
     let
         memory =
@@ -157,7 +157,7 @@ inputToComputer input =
 
 {-| Instantiates a computer with the given memory.
 -}
-compWithMem : Array Int -> Comp
+compWithMem : Array Int -> Computer
 compWithMem mem =
     { memory = mem
     , iPtr = 0
@@ -166,14 +166,14 @@ compWithMem mem =
     }
 
 
-isHalt : Comp -> Bool
+isHalt : Computer -> Bool
 isHalt comp =
     (comp |> readOp) == Just Halt
 
 
 {-| Executes a single instruction.
 -}
-stepOnce : Comp -> Maybe Comp
+stepOnce : Computer -> Maybe Computer
 stepOnce comp =
     let
         op =
@@ -190,10 +190,15 @@ stepOnce comp =
 
 {-| Keep stepping until we reach halt or an invalid state.
 -}
-execUntilHalt : Comp -> Maybe Comp
+execUntilHalt : Computer -> Computer
 execUntilHalt comp =
     if (comp |> readOp) == Just Halt then
-        Just comp
+        comp
 
     else
-        comp |> stepOnce |> Maybe.andThen execUntilHalt
+        case comp |> stepOnce of
+            Nothing ->
+                comp
+
+            Just newComp ->
+                execUntilHalt newComp

@@ -33,7 +33,7 @@ testReadOp expected mem =
     test testName <| \_ -> Expect.equal expected (readOp (compWithMem mem))
 
 
-compWithMem : List Int -> Comp
+compWithMem : List Int -> Computer
 compWithMem mem =
     { memory = mem |> Array.fromList
     , iPtr = 0
