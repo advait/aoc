@@ -1,8 +1,6 @@
 module Computer exposing (..)
 
 import Array exposing (Array)
-import Bitwise
-import Debug
 import Util
 
 
@@ -95,16 +93,17 @@ type LogicalOp
     | Halt
 
 
-{-| Represents an abstract state modification to the computer.
+{-| Represents a low-level state modification to the computer.
 -}
 type StateT
     = Store Int Loc
-    | HaltT
     | AddIPtr Int
     | StoreInputInto Loc
     | AppendOutput Int
 
 
+{-| Transforms an operation into a sequence of computer state transformations.
+-}
 execOp : LogicalOp -> List StateT
 execOp op =
     case op of
@@ -114,25 +113,23 @@ execOp op =
         Mul p1 p2 dest ->
             [ Store (p1 * p2) dest, AddIPtr 4 ]
 
-        -- TODO (Advait): Consider removing HaltT and making implicit as empty List StateT
-        Halt ->
-            [ HaltT ]
-
         Input dest ->
             [ StoreInputInto dest, AddIPtr 2 ]
 
         Output dest ->
             [ AppendOutput dest, AddIPtr 2 ]
 
+        Halt ->
+            []
 
+
+{-| Performs the low-level state modification to the computer.
+-}
 execStateT : StateT -> Computer -> Computer
 execStateT stateT comp =
     case stateT of
         Store val dest ->
             { comp | memory = comp.memory |> Array.set dest val }
-
-        HaltT ->
-            comp
 
         AddIPtr jmp ->
             { comp | iPtr = comp.iPtr + jmp }
@@ -166,8 +163,10 @@ compWithMem mem =
     }
 
 
-isHalt : Computer -> Bool
-isHalt comp =
+{-| Returns whether the computer is in a halted state.
+-}
+isHalted : Computer -> Bool
+isHalted comp =
     (comp |> readOp) == Just Halt
 
 
