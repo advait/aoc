@@ -143,24 +143,31 @@ execStateT stateT comp =
 
 {-| Parses the program input, returning a computer.
 -}
-inputToComputer : String -> Computer
-inputToComputer input =
+fromString : String -> Computer
+fromString input =
     let
         memory =
             input |> String.split "," |> String.join "\n" |> Util.readInts |> Array.fromList
     in
-    compWithMem memory
+    withMem memory
 
 
 {-| Instantiates a computer with the given memory.
 -}
-compWithMem : Array Int -> Computer
-compWithMem mem =
+withMem : Array Int -> Computer
+withMem mem =
     { memory = mem
     , iPtr = 0
     , input = 0
     , output = []
     }
+
+
+{-| Provides the given input to the computer.
+-}
+withInput : Int -> Computer -> Computer
+withInput input comp =
+    { comp | input = input }
 
 
 {-| Returns whether the computer is in a halted state.

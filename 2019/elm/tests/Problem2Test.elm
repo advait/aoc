@@ -28,7 +28,7 @@ expectAfterExecHalt finalMem start =
     Expect.equal
         (finalMem |> Array.fromList)
         (start
-            |> Computer.inputToComputer
+            |> Computer.fromString
             |> Computer.execUntilHalt
             |> .memory
         )

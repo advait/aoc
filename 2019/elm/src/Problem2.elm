@@ -10,7 +10,7 @@ import Util
 -}
 withNewNounAndVerb : Int -> Int -> Computer -> Computer
 withNewNounAndVerb noun verb comp =
-    comp.memory |> Array.set 1 noun |> Array.set 2 verb |> Computer.compWithMem
+    comp.memory |> Array.set 1 noun |> Array.set 2 verb |> Computer.withMem
 
 
 {-| Solves Problem A.
@@ -18,7 +18,7 @@ withNewNounAndVerb noun verb comp =
 problemA : String -> Int
 problemA input =
     input
-        |> Computer.inputToComputer
+        |> Computer.fromString
         |> Computer.execUntilHalt
         |> .memory
         |> Array.get 0
@@ -35,7 +35,7 @@ problemB desiredOutput input =
 
         execWithNounAndVerb noun verb =
             input
-                |> Computer.inputToComputer
+                |> Computer.fromString
                 |> withNewNounAndVerb noun verb
                 |> Computer.execUntilHalt
                 |> .memory
