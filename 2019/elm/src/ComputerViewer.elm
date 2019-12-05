@@ -4,6 +4,7 @@ import Array
 import Browser
 import Bulma.CDN exposing (..)
 import Bulma.Columns exposing (..)
+import Bulma.Components
 import Bulma.Elements exposing (..)
 import Bulma.Layout exposing (..)
 import Bulma.Modifiers exposing (..)
@@ -73,11 +74,44 @@ view : Model -> Html Msg
 view model =
     main_ []
         [ stylesheet
-        , div []
+        , exampleHero
+        , exampleColumns model.comp
+        , container []
             [ button buttonModifiers [ onClick StepForward ] [ text "-" ]
             , div [] [ text (String.fromInt 12) ]
             , button buttonModifiers [ onClick StepBackward ] [ text "+" ]
             , viewMemory model.comp
+            ]
+        ]
+
+
+exampleHero : Html Msg
+exampleHero =
+    hero { heroModifiers | size = Small, color = Primary }
+        []
+        [ heroBody []
+            [ container []
+                [ title H1 [] [ text "AOC: Intcode Emulator" ]
+                , subtitle H3 [] [ text "Simulate" ]
+                ]
+            ]
+        ]
+
+
+exampleColumns : Computer -> Html Msg
+exampleColumns comp =
+    section NotSpaced
+        []
+        [ container []
+            [ columns columnsModifiers
+                []
+                [ column columnModifiers
+                    []
+                    [ title H3 [] [ text "Memory" ]
+                    , viewMemory comp
+                    ]
+                , column columnModifiers [] [ title H3 [] [ text "Internals" ] ]
+                ]
             ]
         ]
 
