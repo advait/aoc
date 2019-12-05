@@ -35,3 +35,28 @@ concatMaybes maybes =
 permutations2 : List a -> List ( a, a )
 permutations2 input =
     input |> List.concatMap (\first -> input |> List.map (\second -> ( first, second )))
+
+
+{-| Given a sorted list of items, return a list of groups of consecutive items.
+-}
+groups : List a -> List (List a)
+groups input =
+    let
+        rec curItem curGroup remaining =
+            case remaining of
+                [] ->
+                    [ curGroup ]
+
+                head :: tail ->
+                    if head == curItem then
+                        rec curItem (head :: curGroup) tail
+
+                    else
+                        curGroup :: rec head [ head ] tail
+    in
+    case input of
+        [] ->
+            []
+
+        head :: tail ->
+            rec head [ head ] tail
