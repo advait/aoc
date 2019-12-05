@@ -1,21 +1,20 @@
 module Problem2 exposing (..)
 
 import Array exposing (Array)
+import Computer
 import List
 import Util
 
 
 type alias Computer =
-    { memory : Array Int
-    , iPtr : Int
-    }
+    Computer.Comp
 
 
 {-| Creates a new computer with an iPtr of 0.
 -}
 newComputer : Array Int -> Computer
-newComputer mem =
-    { memory = mem, iPtr = 0 }
+newComputer =
+    Computer.compWithMem
 
 
 {-| Returns a new computer with the given noun and verb replaced.
@@ -25,53 +24,11 @@ withNewNounAndVerb noun verb comp =
     comp.memory |> Array.set 1 noun |> Array.set 2 verb |> newComputer
 
 
-{-| Writes the given value to the given position in memory, advances the instruction pointer,
-returning the new computer.
--}
-writeValueAndAdvance : Int -> Int -> Computer -> Computer
-writeValueAndAdvance pos val comp =
-    let
-        newMem =
-            comp.memory |> Array.set pos val
-
-        newIPtr =
-            comp.iPtr + 4
-    in
-    { memory = newMem, iPtr = newIPtr }
-
-
 {-| Executes instructions, returning the state after halt.
 -}
 execUntilHalt : Computer -> Computer
 execUntilHalt comp =
-    let
-        readMem loc =
-            comp.memory |> Array.get loc |> Maybe.withDefault 0
-
-        op =
-            readMem comp.iPtr
-
-        p1 =
-            readMem (comp.iPtr + 1)
-
-        p2 =
-            readMem (comp.iPtr + 2)
-
-        dest =
-            readMem (comp.iPtr + 3)
-    in
-    case op of
-        1 ->
-            writeValueAndAdvance dest (readMem p1 + readMem p2) comp |> execUntilHalt
-
-        2 ->
-            writeValueAndAdvance dest (readMem p1 * readMem p2) comp |> execUntilHalt
-
-        99 ->
-            comp
-
-        _ ->
-            Debug.log "Invalid opcode: " comp
+    Computer.execUntilHalt comp |> Maybe.withDefault comp
 
 
 {-| Parses the program input, returning a computer.
