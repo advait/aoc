@@ -73,7 +73,19 @@ readOp comp =
             Maybe.map Input (immParamValue 1)
 
         Just 4 ->
-            Maybe.map Output (immParamValue 1)
+            Maybe.map Output (immOrPosParamValue 1)
+
+        Just 5 ->
+            Maybe.map2 JumpIfTrue (immOrPosParamValue 1) (immOrPosParamValue 2)
+
+        Just 6 ->
+            Maybe.map2 JumpIfFalse (immOrPosParamValue 1) (immOrPosParamValue 2)
+
+        Just 7 ->
+            Maybe.map3 LessThan (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
+
+        Just 8 ->
+            Maybe.map3 Equals (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
 
         Just 99 ->
             Just Halt
@@ -90,6 +102,10 @@ type LogicalOp
     | Mul Int Int Loc
     | Input Loc
     | Output Loc
+    | JumpIfTrue Int Loc
+    | JumpIfFalse Int Loc
+    | LessThan Int Int Loc
+    | Equals Int Int Loc
     | Halt
 
 
@@ -98,6 +114,7 @@ type LogicalOp
 type StateT
     = Store Int Loc
     | AddIPtr Int
+    | SetIPtr Loc
     | StoreInputInto Loc
     | AppendOutput Int
 
@@ -119,6 +136,26 @@ execOp op =
         Output dest ->
             [ AppendOutput dest, AddIPtr 2 ]
 
+        JumpIfTrue p1 dest ->
+            if p1 /= 0 then
+                [ SetIPtr dest ]
+
+            else
+                [ AddIPtr 3 ]
+
+        JumpIfFalse p1 dest ->
+            if p1 == 0 then
+                [ SetIPtr dest ]
+
+            else
+                [ AddIPtr 3 ]
+
+        LessThan p1 p2 dest ->
+            [ Store (p1 < p2 |> Util.boolToInt) dest, AddIPtr 4 ]
+
+        Equals p1 p2 dest ->
+            [ Store (p1 == p2 |> Util.boolToInt) dest, AddIPtr 4 ]
+
         Halt ->
             []
 
@@ -133,6 +170,9 @@ execStateT stateT comp =
 
         AddIPtr jmp ->
             { comp | iPtr = comp.iPtr + jmp }
+
+        SetIPtr dest ->
+            { comp | iPtr = dest }
 
         StoreInputInto dest ->
             { comp | memory = comp.memory |> Array.set dest comp.input }
@@ -204,7 +244,7 @@ execUntilHalt comp =
     else
         case comp |> stepOnce of
             Nothing ->
-                comp
+                Debug.log "Bad comp state" comp
 
             Just newComp ->
                 execUntilHalt newComp

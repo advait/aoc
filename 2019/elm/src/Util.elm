@@ -37,6 +37,18 @@ permutations2 input =
     input |> List.concatMap (\first -> input |> List.map (\second -> ( first, second )))
 
 
+{-| Converts True to 1 and False to 0.
+-}
+boolToInt : Bool -> Int
+boolToInt bool =
+    case bool of
+        True ->
+            1
+
+        False ->
+            0
+
+
 {-| Given a sorted list of items, return a list of groups of consecutive items.
 -}
 groups : List a -> List (List a)
