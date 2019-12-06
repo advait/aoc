@@ -9,7 +9,8 @@ import Bulma.Elements exposing (..)
 import Bulma.Layout exposing (..)
 import Bulma.Modifiers exposing (..)
 import Computer exposing (Computer)
-import Html exposing (Html, div, main_, text)
+import Html exposing (Html, i, main_, text)
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 
 
@@ -56,12 +57,16 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         StepForward ->
-            case model.comp |> Computer.stepOnce of
-                Nothing ->
-                    model
+            if model.comp |> Computer.isHalted then
+                model
 
-                Just nextComp ->
-                    { model | comp = nextComp, prevComps = model.comp :: model.prevComps }
+            else
+                case model.comp |> Computer.stepOnce of
+                    Nothing ->
+                        model
+
+                    Just nextComp ->
+                        { model | comp = nextComp, prevComps = model.comp :: model.prevComps }
 
         StepBackward ->
             case model.prevComps of
@@ -80,13 +85,13 @@ view : Model -> Html Msg
 view model =
     main_ []
         [ stylesheet
-        , exampleHero
-        , exampleColumns model.comp
+        , viewHero
+        , viewColumns model
         ]
 
 
-exampleHero : Html Msg
-exampleHero =
+viewHero : Html Msg
+viewHero =
     hero { heroModifiers | size = Small, color = Primary }
         []
         [ heroBody []
@@ -98,16 +103,16 @@ exampleHero =
         ]
 
 
-exampleColumns : Computer -> Html Msg
-exampleColumns comp =
+viewColumns : Model -> Html Msg
+viewColumns model =
     section NotSpaced
         []
         [ container []
             [ columns columnsModifiers
                 []
-                [ column columnModifiers [] (viewMemory comp)
-                , column columnModifiers [] (viewInternals comp)
-                , column columnModifiers [] (viewCommands comp)
+                [ column columnModifiers [] (viewMemory model.comp)
+                , column columnModifiers [] (viewInternals model.comp)
+                , column columnModifiers [] (viewCommands model)
                 ]
             ]
         ]
@@ -116,7 +121,7 @@ exampleColumns comp =
 viewMemory : Computer -> List (Html Msg)
 viewMemory comp =
     let
-        foo =
+        viewMemoryCell =
             comp.memory
                 |> Array.indexedMap
                     (\loc value ->
@@ -129,42 +134,66 @@ viewMemory comp =
                 |> Array.toList
     in
     [ title H3 [] [ text "Memory" ]
-    , table tableModifiers
+    , table { tableModifiers | bordered = True, striped = True, hoverable = True }
         []
         [ tableHead []
-            [ tableRow False [] [ tableCell [] [ text "Loc" ], tableCell [] [ text "Val" ] ] ]
-        , tableBody [] foo
+            [ tableRow False [] [ tableCellHead [] [ text "Loc" ], tableCellHead [] [ text "Val" ] ] ]
+        , tableBody [] viewMemoryCell
         ]
     ]
 
 
 viewInternals : Computer -> List (Html Msg)
 viewInternals comp =
-    [ title H3 [] [ text "Internals" ]
-    , title H4 [] [ text "Current Op" ]
-    , box []
-        [ text (comp |> Computer.readOp |> Debug.toString)
-        ]
-    , title H4 [] [ text "Transformations" ]
-    , box []
-        [ text (comp |> Computer.readOp |> Maybe.map Computer.execOp |> Debug.toString)
-        ]
-    , title H4 [] [ text "Input" ]
-    , box []
-        [ text (comp.input |> Debug.toString)
-        ]
-    , title H4 [] [ text "Outputs" ]
-    , box []
-        [ text (comp.output |> Debug.toString)
+    [ Bulma.Components.card []
+        [ Bulma.Components.cardHeader []
+            [ Bulma.Components.cardTitle []
+                [ title H3 [] [ text "Internals" ]
+                ]
+            ]
+        , Bulma.Components.cardContent []
+            [ title H4 [] [ text "Current Op" ]
+            , box []
+                [ text (comp |> Computer.readOp |> Debug.toString)
+                ]
+            , title H4 [] [ text "Transformations" ]
+            , box []
+                [ text (comp |> Computer.readOp |> Maybe.map Computer.execOp |> Debug.toString)
+                ]
+            , title H4 [] [ text "Input" ]
+            , box []
+                [ text (comp.input |> Debug.toString)
+                ]
+            , title H4 [] [ text "Outputs" ]
+            , box []
+                [ text (comp.output |> Debug.toString)
+                ]
+            ]
         ]
     ]
 
 
-viewCommands : Computer -> List (Html Msg)
-viewCommands comp =
-    [ title H3 [] [ text "Commands" ]
-    , box []
-        [ button buttonModifiers [ onClick StepBackward ] [ text "Step Backward" ]
-        , button buttonModifiers [ onClick StepForward ] [ text "Step Forward" ]
+viewCommands : Model -> List (Html Msg)
+viewCommands model =
+    let
+        backwardDisabled =
+            model.prevComps == []
+
+        forwardDisabled =
+            model.comp |> Computer.isHalted
+    in
+    [ Bulma.Components.card []
+        [ Bulma.Components.cardHeader []
+            [ Bulma.Components.cardTitle []
+                [ title H3 [] [ text "Commands" ]
+                ]
+            ]
+        , Bulma.Components.cardContent []
+            [ connectedButtons Centered
+                []
+                [ button { buttonModifiers | disabled = backwardDisabled } [ onClick StepBackward ] [ text "Step Backward" ]
+                , button { buttonModifiers | disabled = forwardDisabled } [ onClick StepForward ] [ text "Step Forward" ]
+                ]
+            ]
         ]
     ]
