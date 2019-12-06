@@ -12,7 +12,7 @@ suite =
     describe "Computer"
         [ describe "readOp"
             [ testReadOp (Just (Input 0)) [ 3, 0, 4, 0 ]
-            , testReadOp (Just (Output 0)) [ 4, 0 ]
+            , testReadOp (Just (Output 4)) [ 4, 0 ]
             , testReadOp (Just Halt) [ 99 ]
             , testReadOp (Just (Add 1 2 3)) [ 1, 1, 2, 3 ]
             , testReadOp (Just (Mul 1 2 3)) [ 2, 1, 2, 3 ]

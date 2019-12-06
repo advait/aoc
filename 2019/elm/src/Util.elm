@@ -15,6 +15,18 @@ readInts input =
         |> concatMaybes
 
 
+{-| Converts a Maybe into a singleton or empty list.
+-}
+listFromMaybe : Maybe a -> List a
+listFromMaybe maybe =
+    case maybe of
+        Nothing ->
+            []
+
+        Just a ->
+            [ a ]
+
+
 {-| Remove Nothings from a List of Maybes and unwraps the Justs.
 -}
 concatMaybes : List (Maybe a) -> List a
