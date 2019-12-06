@@ -10,7 +10,7 @@ import Bulma.Layout exposing (..)
 import Bulma.Modifiers exposing (..)
 import Computer exposing (Computer)
 import Html exposing (Html, i, main_, text)
-import Html.Attributes exposing (class)
+import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 
 
@@ -108,11 +108,11 @@ viewColumns model =
     section NotSpaced
         []
         [ container []
-            [ columns columnsModifiers
+            [ columns { columnsModifiers | gap = Gap8 }
                 []
-                [ column columnModifiers [] (viewMemory model.comp)
+                [ column narrowColumnModifiers [] (viewCommands model)
                 , column columnModifiers [] (viewInternals model.comp)
-                , column columnModifiers [] (viewCommands model)
+                , column narrowColumnModifiers [] (viewMemory model.comp)
                 ]
             ]
         ]
@@ -127,15 +127,15 @@ viewMemory comp =
                     (\loc value ->
                         tableRow (comp.iPtr == loc)
                             []
-                            [ tableCell [] [ text (loc |> String.fromInt) ]
-                            , tableCell [] [ text (value |> String.fromInt) ]
+                            [ tableCell [ style "font-family" "monospace" ] [ text (loc |> String.fromInt) ]
+                            , tableCell [ style "font-family" "monospace" ] [ text (value |> String.fromInt) ]
                             ]
                     )
                 |> Array.toList
     in
     [ title H3 [] [ text "Memory" ]
     , table { tableModifiers | bordered = True, striped = True, hoverable = True }
-        []
+        [ style "width" "200px" ]
         [ tableHead []
             [ tableRow False [] [ tableCellHead [] [ text "Loc" ], tableCellHead [] [ text "Val" ] ] ]
         , tableBody [] viewMemoryCell
