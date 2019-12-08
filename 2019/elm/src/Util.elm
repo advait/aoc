@@ -49,6 +49,35 @@ permutations2 input =
     input |> List.concatMap (\first -> input |> List.map (\second -> ( first, second )))
 
 
+{-| Return all combinations in the form of (element, rest of the list). Read [Haskell Libraries proposal](https://mail.haskell.org/pipermail/libraries/2008-February/009270.html) for further ideas on how to use this function.
+select [1,2,3,4] == [(1,[2,3,4]),(2,[1,3,4]),(3,[1,2,4]),(4,[1,2,3])]
+-}
+select : List a -> List ( a, List a )
+select items =
+    case items of
+        [] ->
+            []
+
+        x :: xs ->
+            ( x, xs ) :: List.map (\( y, ys ) -> ( y, x :: ys )) (select xs)
+
+
+{-| Return all unique permutations of the given list (order matters, all items selected).
+-}
+permutations : List a -> List (List a)
+permutations xs_ =
+    case xs_ of
+        [] ->
+            [ [] ]
+
+        xs ->
+            let
+                f ( y, ys ) =
+                    List.map ((::) y) (permutations ys)
+            in
+            List.concatMap f (select xs)
+
+
 {-| Converts True to 1 and False to 0.
 -}
 boolToInt : Bool -> Int

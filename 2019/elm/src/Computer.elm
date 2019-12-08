@@ -9,7 +9,7 @@ import Util
 type alias Computer =
     { memory : Array Int
     , iPtr : Int
-    , input : Int
+    , inputs : List Int
     , output : List Int
     }
 
@@ -115,7 +115,7 @@ type StateT
     = Store Int Loc
     | AddIPtr Int
     | SetIPtr Loc
-    | StoreInputInto Loc
+    | PopInputAndStore Loc
     | AppendOutput Int
 
 
@@ -131,7 +131,7 @@ execOp op =
             [ Store (p1 * p2) dest, AddIPtr 4 ]
 
         Input dest ->
-            [ StoreInputInto dest, AddIPtr 2 ]
+            [ PopInputAndStore dest, AddIPtr 2 ]
 
         Output dest ->
             [ AppendOutput dest, AddIPtr 2 ]
@@ -174,8 +174,13 @@ execStateT stateT comp =
         SetIPtr dest ->
             { comp | iPtr = dest }
 
-        StoreInputInto dest ->
-            { comp | memory = comp.memory |> Array.set dest comp.input }
+        PopInputAndStore dest ->
+            (case comp.inputs of
+                -- No input to read, consider logging error
+                [] ->
+                    comp
+                head :: tail ->
+                    { comp | memory = comp.memory |> Array.set dest head, inputs = tail })
 
         AppendOutput val ->
             { comp | output = val :: comp.output }
@@ -198,17 +203,14 @@ withMem : Array Int -> Computer
 withMem mem =
     { memory = mem
     , iPtr = 0
-    , input = 0
+    , inputs = []
     , output = []
     }
 
-
-{-| Provides the given input to the computer.
--}
-withInput : Int -> Computer -> Computer
-withInput input comp =
-    { comp | input = input }
-
+{-| Provides the given input to the computer.-}
+withInputs : List Int -> Computer -> Computer
+withInputs inputs comp =
+    { comp | inputs = inputs }
 
 {-| Returns whether the computer is in a halted state.
 -}

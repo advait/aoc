@@ -37,6 +37,6 @@ compWithMem : List Int -> Computer
 compWithMem mem =
     { memory = mem |> Array.fromList
     , iPtr = 0
-    , input = 0
+    , inputs = 0
     , output = []
     }
