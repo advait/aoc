@@ -6,12 +6,14 @@ import Bulma.CDN exposing (..)
 import Bulma.Columns exposing (..)
 import Bulma.Components
 import Bulma.Elements exposing (..)
+import Bulma.Form exposing (..)
 import Bulma.Layout exposing (..)
 import Bulma.Modifiers exposing (..)
 import Computer exposing (Computer)
 import Html exposing (Html, a, main_, text)
-import Html.Attributes exposing (href, style)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (href, placeholder, style, value)
+import Html.Events exposing (onClick, onInput)
+import Util
 
 
 {-| MAIN
@@ -29,13 +31,13 @@ type alias Model =
 
 
 dummyInput =
-    "3,8,1001,8,10,8,105,1,0,0,21,38,47,64,89,110,191,272,353,434,99999,3,9,101,4,9,9,102,3,9,9,101,5,9,9,4,9,99,3,9,1002,9,5,9,4,9,99,3,9,101,2,9,9,102,5,9,9,1001,9,5,9,4,9,99,3,9,1001,9,5,9,102,4,9,9,1001,9,5,9,1002,9,2,9,1001,9,3,9,4,9,99,3,9,102,2,9,9,101,4,9,9,1002,9,4,9,1001,9,4,9,4,9,99,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,2,9,9,4,9,99,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,99,3,9,1001,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,99,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1002,9,2,9,4,9,99,3,9,101,1,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,1002,9,2,9,4,9,99"
+    "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"
 
 
 init : Model
 init =
     { prevComps = []
-    , comp = Computer.fromString dummyInput |> Computer.withInputs [ 4, 68 ]
+    , comp = Computer.fromString dummyInput |> Computer.withInputs [ 9, 0 ]
     }
 
 
@@ -44,6 +46,7 @@ init =
 type Msg
     = StepForward
     | StepBackward
+    | SetInput String
 
 
 update : Msg -> Model -> Model
@@ -68,6 +71,13 @@ update msg model =
 
                 _ ->
                     model
+
+        SetInput newInput ->
+            let
+                parsedInput =
+                    newInput |> String.trim |> String.split "," |> List.map String.toInt |> Util.concatMaybes
+            in
+            { model | comp = model.comp |> Computer.withInputs parsedInput }
 
 
 
@@ -182,6 +192,9 @@ viewCommands model =
 
         forwardDisabled =
             model.comp |> Computer.isHalted
+
+        compInputs =
+            model.comp.inputs |> List.map String.fromInt |> String.join ","
     in
     [ Bulma.Components.card []
         [ Bulma.Components.cardHeader []
@@ -190,11 +203,16 @@ viewCommands model =
                 ]
             ]
         , Bulma.Components.cardContent []
-            [ connectedButtons Centered
+            [ title H4 [] [ text "Instructions" ]
+            , connectedButtons Centered
                 []
                 [ button { buttonModifiers | inverted = backwardDisabled, color = Warning } [ onClick StepBackward ] [ text "Step Backward" ]
                 , button { buttonModifiers | inverted = forwardDisabled, color = Primary } [ onClick StepForward ] [ text "Step Forward" ]
                 ]
+            ]
+        , Bulma.Components.cardContent []
+            [ title H4 [] [ text "Override Input" ]
+            , controlInput controlInputModifiers [] [ onInput SetInput, value compInputs ] []
             ]
         ]
     ]

@@ -42,6 +42,37 @@ concatMaybes maybes =
             a :: concatMaybes tail
 
 
+{-| Unsafely returns the head of a list.
+-}
+unsafeHead : List a -> a
+unsafeHead list =
+    case list of
+        head :: _ ->
+            head
+
+        _ ->
+            Debug.todo "error, no head"
+
+
+{-| Simultaneously performs a map and foldl operation.
+-}
+mapAndFoldl : (a -> b -> ( c, b )) -> b -> List a -> ( List c, b )
+mapAndFoldl f acc list =
+    case list of
+        [] ->
+            ( [], acc )
+
+        head :: tail ->
+            let
+                ( mappedItem, output ) =
+                    f head acc
+
+                ( remainingItems, finalOutput ) =
+                    mapAndFoldl f output tail
+            in
+            ( mappedItem :: remainingItems, finalOutput )
+
+
 {-| Return all unique the two-tuple permutations of items in the input, allowing for duplicates.
 -}
 permutations2 : List a -> List ( a, a )

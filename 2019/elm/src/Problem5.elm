@@ -9,8 +9,8 @@ computer =
 
 
 problemA =
-    computer |> Computer.withInputs [ 1 ] |> Computer.execUntilHalt
+    computer |> Computer.enqueueInput 1 |> Computer.execUntilHalt
 
 
 problemB =
-    computer |> Computer.withInputs [ 5 ] |> Computer.execUntilHalt
+    computer |> Computer.enqueueInput 5 |> Computer.execUntilHalt

@@ -9,14 +9,20 @@ import Util
 type alias Computer =
     { memory : Array Int
     , iPtr : Int
-    , inputs : List Int
-    , output : List Int
+    , inputs : List InputOutput
+    , output : List InputOutput
     }
 
 
 {-| Type for a location in memory.
 -}
 type alias Loc =
+    Int
+
+
+{-| Type for the computer's input or output.
+-}
+type alias InputOutput =
     Int
 
 
@@ -175,12 +181,12 @@ execStateT stateT comp =
             { comp | iPtr = dest }
 
         PopInputAndStore dest ->
-            (case comp.inputs of
-                -- No input to read, consider logging error
+            case comp.inputs of
                 [] ->
-                    comp
+                    Debug.todo ("Error: Trying to read empty input: " ++ Debug.toString comp)
+
                 head :: tail ->
-                    { comp | memory = comp.memory |> Array.set dest head, inputs = tail })
+                    { comp | memory = comp.memory |> Array.set dest head, inputs = tail }
 
         AppendOutput val ->
             { comp | output = val :: comp.output }
@@ -207,10 +213,21 @@ withMem mem =
     , output = []
     }
 
-{-| Provides the given input to the computer.-}
-withInputs : List Int -> Computer -> Computer
+
+{-| Enqueue the given input to be consumed. Note that inputs will be consumed in the order
+they were enqueued.
+-}
+enqueueInput : InputOutput -> Computer -> Computer
+enqueueInput input comp =
+    { comp | inputs = comp.inputs ++ [ input ] }
+
+
+{-| Provides the given input to the computer.
+-}
+withInputs : List InputOutput -> Computer -> Computer
 withInputs inputs comp =
     { comp | inputs = inputs }
+
 
 {-| Returns whether the computer is in a halted state.
 -}
@@ -236,17 +253,35 @@ stepOnce comp =
     finalComp
 
 
-{-| Keep stepping until we reach halt or an invalid state.
+{-| Keep on executing until the predicate returns True.
 -}
-execUntilHalt : Computer -> Computer
-execUntilHalt comp =
-    if (comp |> readOp) == Just Halt then
+execUntil : (Computer -> Bool) -> Computer -> Computer
+execUntil pred comp =
+    if pred comp then
         comp
 
     else
         case comp |> stepOnce of
             Nothing ->
-                Debug.log "Bad comp state" comp
+                Debug.todo "Bad computer state"
 
             Just newComp ->
-                execUntilHalt newComp
+                execUntil pred newComp
+
+
+{-| Keep stepping until we reach halt or an invalid state.
+-}
+execUntilHalt : Computer -> Computer
+execUntilHalt =
+    execUntil isHalted
+
+
+{-| Keep stepping until the computer has outputted a new value.
+-}
+execUntilOutput : Computer -> Computer
+execUntilOutput startingComp =
+    let
+        hasNewOutput curComp =
+            startingComp.output /= curComp.output
+    in
+    execUntil hasNewOutput startingComp
