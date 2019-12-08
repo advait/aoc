@@ -9,3 +9,4 @@ src/*.bs.js
 _build/
 .idea/
 .vscode/
+dist/
