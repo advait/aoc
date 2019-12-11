@@ -73,6 +73,18 @@ mapAndFoldl f acc list =
             ( mappedItem :: remainingItems, finalOutput )
 
 
+{-| Reduces a list. Like foldl but using the first element as the starting accumulator.
+-}
+reduce : (a -> a -> a) -> List a -> a
+reduce f list =
+    case list of
+        [] ->
+            Debug.todo "Cannot reduce empty list"
+
+        head :: tail ->
+            List.foldl f head tail
+
+
 {-| Return all unique the two-tuple permutations of items in the input, allowing for duplicates.
 -}
 permutations2 : List a -> List ( a, a )
