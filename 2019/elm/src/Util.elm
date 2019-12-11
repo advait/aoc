@@ -1,5 +1,6 @@
 module Util exposing (..)
 
+import Array exposing (Array)
 import List
 import String
 
@@ -52,6 +53,22 @@ unsafeHead list =
 
         _ ->
             Debug.todo "error, no head"
+
+
+{-| Set a value in an array, potentially extending the array with zeroes if necessary.
+-}
+safeArraySet : Int -> Int -> Array Int -> Array Int
+safeArraySet index value arr =
+    let
+        arrLen =
+            arr |> Array.length
+    in
+    if index < arrLen then
+        arr |> Array.set index value
+
+    else
+        Array.append arr (Array.repeat (index - arrLen + 1) 0)
+            |> safeArraySet index value
 
 
 {-| Simultaneously performs a map and foldl operation.
@@ -135,8 +152,15 @@ boolToInt bool =
 
 {-| Given a sorted list of items, return a list of groups of consecutive items.
 -}
-groups : List a -> List (List a)
-groups input =
+groups : List comparable -> List (List comparable)
+groups =
+    groupsBy compare
+
+
+{-| Given a sorted list of items, return a list of groups cut by the given comparable function.
+-}
+groupsBy : (a -> a -> Order) -> List a -> List (List a)
+groupsBy f input =
     let
         rec curItem curGroup remaining =
             case remaining of
@@ -144,7 +168,7 @@ groups input =
                     [ curGroup ]
 
                 head :: tail ->
-                    if head == curItem then
+                    if f head curItem == EQ then
                         rec curItem (head :: curGroup) tail
 
                     else
