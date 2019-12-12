@@ -2,6 +2,7 @@ module Util exposing (..)
 
 import Array exposing (Array)
 import List
+import Set
 import String
 
 
@@ -148,6 +149,32 @@ boolToInt bool =
 
         False ->
             0
+
+
+{-| Returns the integer factors for the given number.
+-}
+factors : Int -> List Int
+factors n =
+    List.range 1 n
+        |> List.filter (\f -> modBy f n == 0)
+
+
+{-| Returns the greatest common factor between the two integers.
+-}
+gcf : Int -> Int -> Int
+gcf x y =
+    case ( x, y ) of
+        ( 0, _ ) ->
+            y
+
+        ( _, 0 ) ->
+            x
+
+        _ ->
+            Set.intersect (factors x |> Set.fromList) (factors y |> Set.fromList)
+                |> Set.toList
+                |> List.maximum
+                |> Maybe.withDefault 1
 
 
 {-| Given a sorted list of items, return a list of groups of consecutive items.

@@ -1,8 +1,8 @@
 module Problem10 exposing (..)
 
+import Basics
 import Compare
 import Dict exposing (Dict)
-import Set
 import Util
 
 
@@ -12,7 +12,7 @@ type alias Point =
     ( Int, Int )
 
 
-{-| A vector starting form the origin.
+{-| A vector starting form the origin to the given point.
 -}
 type alias Vector =
     Point
@@ -29,15 +29,47 @@ liftOp op p0 p1 =
     ( op x0 x1, op y0 y1 )
 
 
-minus =
-    liftOp (-)
+{-| Return the magnitude of the vector.
+-}
+mag : Vector -> Float
+mag v =
+    let
+        ( x, y ) =
+            v
+    in
+    sqrt (toFloat x ^ 2 + toFloat y ^ 2)
 
 
-plus =
-    liftOp (+)
+{-| Angle between (0, -1) and the given point.
+-}
+angleFromUp : Vector -> Float
+angleFromUp =
+    Tuple.mapBoth toFloat toFloat
+        >> Basics.toPolar
+        >> Tuple.second
+        >> (+) (Basics.pi / 2)
+        >> normalizeAngle
 
 
-{-| Shorten the given vector by
+{-| Normalizes an angle so that it ends up between 0 and 2\*pi.
+-}
+normalizeAngle : Float -> Float
+normalizeAngle a =
+    let
+        twoPi =
+            Basics.pi * 2
+    in
+    if a < 0 then
+        normalizeAngle (a + twoPi)
+
+    else if a > twoPi then
+        normalizeAngle (a - twoPi)
+
+    else
+        a
+
+
+{-| Shorten the given vector so that its components are the smallest integers possible.
 -}
 shortestWholeVector : Vector -> Vector
 shortestWholeVector v =
@@ -46,37 +78,13 @@ shortestWholeVector v =
             v
 
         divisor =
-            gcf (abs deltaX) (abs deltaY)
+            Util.gcf (abs deltaX) (abs deltaY)
     in
     ( deltaX // divisor, deltaY // divisor )
 
 
-{-| Returns the integer factors for the given number.
+{-| Returns groups of vectors based on which "shortestWholeVector" group they belong to.
 -}
-factors : Int -> List Int
-factors n =
-    List.range 1 n
-        |> List.filter (\f -> modBy f n == 0)
-
-
-{-| Returns the greatest common factor between the two integers.
--}
-gcf : Int -> Int -> Int
-gcf x y =
-    case ( x, y ) of
-        ( 0, _ ) ->
-            y
-
-        ( _, 0 ) ->
-            x
-
-        _ ->
-            Set.intersect (factors x |> Set.fromList) (factors y |> Set.fromList)
-                |> Set.toList
-                |> List.maximum
-                |> Maybe.withDefault 1
-
-
 vectorGroups : List Vector -> List (List Vector)
 vectorGroups vecs =
     let
@@ -118,28 +126,71 @@ countVisible : Dict Point Bool -> Point -> Int
 countVisible asteroids point =
     let
         vecs =
-            asteroids |> Dict.keys |> List.map (\p -> minus p point)
+            asteroids |> Dict.keys |> List.map (\p -> liftOp (-) p point)
+
+        isAsteroid : Point -> Bool
+        isAsteroid loc =
+            Dict.get (liftOp (+) point loc) asteroids == Just True
 
         groups =
             vecs
                 |> vectorGroups
                 |> List.filter
-                    (\group ->
-                        group
-                            |> List.any
-                                (\loc ->
-                                    Dict.get (plus point loc) asteroids == Just True
-                                )
-                    )
+                    (List.any isAsteroid)
     in
     (groups |> List.length) - 1
 
 
-problemA : Dict Point Bool -> Int
+{-| Sorts the asteroids based on which order they would be zapped by a laser at the given point.
+-}
+sortByLaser : Point -> List Point -> List Point
+sortByLaser point asteroids =
+    asteroids
+        |> List.map (\p -> liftOp (-) p point)
+        |> List.sortWith (Compare.by angleFromUp)
+        |> Util.groupsBy (Compare.by angleFromUp)
+        |> List.map (List.sortBy mag)
+        |> cycleTakeFromGroups
+        |> List.map (liftOp (+) point)
+
+
+problemA : Dict Point Bool -> ( Int, Point )
 problemA asteroids =
     asteroids
         |> Dict.filter (\_ val -> val)
         |> Dict.keys
-        |> List.map (countVisible asteroids)
+        |> List.map (\p -> ( countVisible asteroids p, p ))
         |> List.maximum
-        |> Maybe.withDefault 0
+        |> Maybe.withDefault ( 0, ( 0, 0 ) )
+
+
+{-| Given a list of lists, consume a single item from each inner list, until the whole outer list is consumed.
+-}
+cycleTakeFromGroups : List (List a) -> List a
+cycleTakeFromGroups groups =
+    case groups of
+        [] ->
+            []
+
+        [] :: remaining ->
+            cycleTakeFromGroups remaining
+
+        (head :: tail) :: remaining ->
+            head :: cycleTakeFromGroups (remaining ++ [ tail ])
+
+
+problemB : Dict Point Bool -> Maybe Point
+problemB allPoints =
+    let
+        ( _, point ) =
+            problemA allPoints
+
+        asteroids =
+            allPoints
+                |> Dict.filter (\_ val -> val)
+                |> Dict.keys
+    in
+    asteroids
+        |> sortByLaser point
+        |> List.drop (200 - 1)
+        |> List.head
