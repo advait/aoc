@@ -60,6 +60,7 @@ readOp comp =
                                 Nothing
                    )
 
+        -- Given an argument index and a parameter type, return an Arg value representing that
         readArg : Int -> ParamType -> Maybe Arg
         readArg paramIndex paramType =
             paramMode paramIndex
@@ -81,11 +82,16 @@ readOp comp =
     Maybe.map2 Tuple.pair parsedOpName parsedArgs
 
 
+{-| Whether a parameter is an input Argument or an output Destination.
+-}
 type ParamType
     = Arg
     | Dest
 
 
+{-| The parameter mode of an argument/destination. Position mode implies a memory location. Immediate mode implies
+a constant/immediate value. BaseRelative mode implies a memory location relative to the base pointer.
+-}
 type ParamMode
     = Position
     | Immediate
@@ -98,6 +104,8 @@ type alias Arg =
     ( ParamType, ParamMode, Int )
 
 
+{-| The various operations that our computer supports.
+-}
 type OpName
     = AddOp
     | MulOp
@@ -111,6 +119,8 @@ type OpName
     | HaltOp
 
 
+{-| Parses an integer, returning an OpName and a list of parameters that that op expects.
+-}
 opFromInt : Int -> Maybe ( OpName, List ParamType )
 opFromInt instr =
     case instr |> modBy 100 of
@@ -148,46 +158,53 @@ opFromInt instr =
             Nothing
 
 
-{-| Represents a logical operation for the computer. Does not care about immediate or position mode and expects any such
-dereferencing to be handled beforehand.
+{-| Represents a logical operation for the computer.
 -}
 type alias LogicalOp =
     ( OpName, List Arg )
 
 
+{-| Represents a dereferenced operation for the computer, implying that position mode, immediate mode, or base
+relative mode has been dereferenced to the provided list of Int values.
+-}
 type alias DereferencedOp =
     ( OpName, List Int )
 
 
-dereference : Computer -> Arg -> Int
-dereference comp arg =
-    case arg of
-        ( Arg, Position, value ) ->
-            readMem comp value
-
-        ( Arg, Immediate, value ) ->
-            value
-
-        ( Arg, BaseRelative, value ) ->
-            readMem comp (comp.basePtr + value)
-
-        ( Dest, Position, value ) ->
-            value
-
-        ( Dest, Immediate, _ ) ->
-            Debug.todo "Error, destination should not be an immediate"
-
-        ( Dest, BaseRelative, value ) ->
-            comp.basePtr + value
-
-
-dereferenceLogicalOp : Computer -> LogicalOp -> DereferencedOp
+{-| Given a logical operation, dereferences the arguments and the destination, providing constant values for execution.
+-}
+dereferenceLogicalOp : Computer -> LogicalOp -> Maybe DereferencedOp
 dereferenceLogicalOp comp op =
     let
         ( opName, args ) =
             op
+
+        -- Interprets position, immediate, and base relative mode, returning a dereferenced/resolved value
+        dereference : Arg -> Maybe Int
+        dereference arg =
+            case arg of
+                ( Arg, Position, value ) ->
+                    Just <| readMem comp value
+
+                ( Arg, Immediate, value ) ->
+                    Just <| value
+
+                ( Arg, BaseRelative, value ) ->
+                    Just <| readMem comp (comp.basePtr + value)
+
+                ( Dest, Position, value ) ->
+                    Just <| value
+
+                ( Dest, Immediate, _ ) ->
+                    Debug.log "Error, destination should not be an immediate" Nothing
+
+                ( Dest, BaseRelative, value ) ->
+                    Just <| comp.basePtr + value
+
+        dereferencedArgs =
+            args |> List.map dereference |> Util.concatMaybesIfAllJusts
     in
-    ( opName, args |> List.map (dereference comp) )
+    Maybe.map2 Tuple.pair (Just opName) dereferencedArgs
 
 
 {-| Represents a low-level state modification to the computer.
@@ -203,49 +220,49 @@ type StateT
 
 {-| Transforms an operation into a sequence of computer state transformations.
 -}
-execOp : DereferencedOp -> List StateT
+execOp : DereferencedOp -> Maybe (List StateT)
 execOp op =
     case op of
         ( AddOp, [ p1, p2, dest ] ) ->
-            [ Store (p1 + p2) dest, AddIPtr 4 ]
+            Just <| [ Store (p1 + p2) dest, AddIPtr 4 ]
 
         ( MulOp, [ p1, p2, dest ] ) ->
-            [ Store (p1 * p2) dest, AddIPtr 4 ]
+            Just <| [ Store (p1 * p2) dest, AddIPtr 4 ]
 
         ( InputOp, [ dest ] ) ->
-            [ PopInputAndStore dest, AddIPtr 2 ]
+            Just <| [ PopInputAndStore dest, AddIPtr 2 ]
 
         ( OutputOp, [ p1 ] ) ->
-            [ AppendOutput p1, AddIPtr 2 ]
+            Just <| [ AppendOutput p1, AddIPtr 2 ]
 
         ( JumpIfTrueOp, [ p1, dest ] ) ->
             if p1 /= 0 then
-                [ SetIPtr dest ]
+                Just <| [ SetIPtr dest ]
 
             else
-                [ AddIPtr 3 ]
+                Just <| [ AddIPtr 3 ]
 
         ( JumpIfFalseOp, [ p1, dest ] ) ->
             if p1 == 0 then
-                [ SetIPtr dest ]
+                Just <| [ SetIPtr dest ]
 
             else
-                [ AddIPtr 3 ]
+                Just <| [ AddIPtr 3 ]
 
         ( LessThanOp, [ p1, p2, dest ] ) ->
-            [ Store (p1 < p2 |> Util.boolToInt) dest, AddIPtr 4 ]
+            Just <| [ Store (p1 < p2 |> Util.boolToInt) dest, AddIPtr 4 ]
 
         ( EqualsOp, [ p1, p2, dest ] ) ->
-            [ Store (p1 == p2 |> Util.boolToInt) dest, AddIPtr 4 ]
+            Just <| [ Store (p1 == p2 |> Util.boolToInt) dest, AddIPtr 4 ]
 
         ( AdjustRelativeBaseOp, [ p1 ] ) ->
-            [ AddBasePtr p1, AddIPtr 2 ]
+            Just <| [ AddBasePtr p1, AddIPtr 2 ]
 
         ( HaltOp, [] ) ->
-            []
+            Just <| []
 
         _ ->
-            Debug.todo "Illegal dereferenced operation"
+            Debug.log "Illegal dereferenced operation" Nothing
 
 
 {-| Performs the low-level state modification to the computer.
@@ -331,10 +348,10 @@ stepInternals comp =
             comp |> readOp
 
         dereferencedOp =
-            logicalOp |> Maybe.map (dereferenceLogicalOp comp)
+            logicalOp |> Maybe.andThen (dereferenceLogicalOp comp)
 
         stateTs =
-            dereferencedOp |> Maybe.map execOp
+            dereferencedOp |> Maybe.andThen execOp
     in
     ( logicalOp, dereferencedOp, stateTs )
 
