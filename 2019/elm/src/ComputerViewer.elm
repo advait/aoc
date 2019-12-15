@@ -31,7 +31,7 @@ type alias Model =
 
 
 dummyInput =
-    "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"
+    "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99"
 
 
 init : Model
@@ -156,6 +156,10 @@ viewMemory comp =
 
 viewInternals : Computer -> List (Html Msg)
 viewInternals comp =
+    let
+        ( logicalOp, dereferencedOp, stateTs ) =
+            Computer.stepInternals comp
+    in
     [ Bulma.Components.card []
         [ Bulma.Components.cardHeader []
             [ Bulma.Components.cardTitle []
@@ -163,13 +167,21 @@ viewInternals comp =
                 ]
             ]
         , Bulma.Components.cardContent []
-            [ title H4 [] [ text "Current Op" ]
+            [ title H4 [] [ text "Logical Op" ]
             , box []
-                [ text (comp |> Computer.readOp |> Debug.toString)
+                [ text (logicalOp |> Debug.toString)
+                ]
+            , title H4 [] [ text "Dereferenced Op" ]
+            , box []
+                [ text (dereferencedOp |> Debug.toString)
                 ]
             , title H4 [] [ text "Transformations" ]
             , box []
-                [ text (comp |> Computer.readOp |> Maybe.map Computer.execOp |> Debug.toString)
+                [ text (stateTs |> Debug.toString)
+                ]
+            , title H4 [] [ text "Base Pointer" ]
+            , box []
+                [ text (comp.basePtr |> Debug.toString)
                 ]
             , title H4 [] [ text "Input" ]
             , box []

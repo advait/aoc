@@ -44,6 +44,21 @@ concatMaybes maybes =
             a :: concatMaybes tail
 
 
+{-| Given a list of maybes, unwrap all of them and return Just if all of them were Justs otherwise return Nothing.
+-}
+concatMaybesIfAllJusts : List (Maybe a) -> Maybe (List a)
+concatMaybesIfAllJusts maybes =
+    let
+        unwrapped =
+            maybes |> concatMaybes
+    in
+    if (unwrapped |> List.length) == (maybes |> List.length) then
+        Just unwrapped
+
+    else
+        Nothing
+
+
 {-| Unsafely returns the head of a list.
 -}
 unsafeHead : List a -> a

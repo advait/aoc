@@ -8,7 +8,8 @@ import Util
 -}
 type alias Computer =
     { memory : Array Int
-    , iPtr : Int
+    , iPtr : Loc
+    , basePtr : Loc
     , inputs : List InputOutput
     , output : List InputOutput
     }
@@ -26,75 +27,122 @@ type alias InputOutput =
     Int
 
 
+{-| Reads a memory location, returning zero if there is no value there.
+-}
+readMem : Computer -> Loc -> Int
+readMem comp loc =
+    comp.memory |> Array.get loc |> Maybe.withDefault 0
+
+
 {-| Given the state of the computer, read the current Op, returning Nothing if the iPtr points off memory, or the
 opcode is invalid.
 -}
 readOp : Computer -> Maybe LogicalOp
 readOp comp =
     let
-        readMem : Loc -> Maybe Int
-        readMem relativePos =
-            comp.memory |> Array.get relativePos
+        -- Determines the parameter mode of the given zero-based index parameter
+        paramMode : Int -> Maybe ParamMode
+        paramMode paramIndex =
+            readMem comp comp.iPtr
+                |> (\opc -> opc // (10 ^ (paramIndex + 2)))
+                |> (\i ->
+                        case i |> modBy 10 of
+                            0 ->
+                                Just Position
 
-        fullOpcode =
-            readMem comp.iPtr
+                            1 ->
+                                Just Immediate
 
-        -- Bottom two digits of full opcode
-        opcode =
-            fullOpcode |> Maybe.map (modBy 100)
+                            2 ->
+                                Just BaseRelative
 
-        -- Determine if the given param (one-based index) is in immediate mode
-        isImmediateMode : Int -> Maybe Bool
-        isImmediateMode paramIndex =
-            fullOpcode
-                |> Maybe.map (\opc -> opc // (10 ^ (paramIndex + 1)))
-                |> Maybe.map (\i -> (i |> modBy 10) == 1)
+                            _ ->
+                                Nothing
+                   )
 
-        -- Interprets the parameter as an immediate and returns it
-        immParamValue : Int -> Maybe Int
-        immParamValue index =
-            readMem (comp.iPtr + index)
+        readArg : Int -> ParamType -> Maybe Arg
+        readArg paramIndex paramType =
+            paramMode paramIndex
+                |> Maybe.map (\mode -> ( paramType, mode, readMem comp (comp.iPtr + 1 + paramIndex) ))
 
-        -- Determines the de-referenced value for the given parameter
-        immOrPosParamValue : Int -> Maybe Int
-        immOrPosParamValue index =
-            isImmediateMode index
-                |> Maybe.andThen
-                    (\isImmediate ->
-                        if isImmediate then
-                            immParamValue index
+        parsedOp =
+            opFromInt (readMem comp comp.iPtr)
 
-                        else
-                            immParamValue index |> Maybe.andThen (\loc -> readMem loc)
-                    )
+        parsedOpName =
+            parsedOp |> Maybe.map Tuple.first
+
+        parsedArgs =
+            parsedOp
+                |> Maybe.map Tuple.second
+                |> Maybe.map
+                    (List.indexedMap readArg)
+                |> Maybe.andThen Util.concatMaybesIfAllJusts
     in
-    case opcode of
-        Just 1 ->
-            Maybe.map3 Add (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
+    Maybe.map2 Tuple.pair parsedOpName parsedArgs
 
-        Just 2 ->
-            Maybe.map3 Mul (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
 
-        Just 3 ->
-            Maybe.map Input (immParamValue 1)
+type ParamType
+    = Arg
+    | Dest
 
-        Just 4 ->
-            Maybe.map Output (immOrPosParamValue 1)
 
-        Just 5 ->
-            Maybe.map2 JumpIfTrue (immOrPosParamValue 1) (immOrPosParamValue 2)
+type ParamMode
+    = Position
+    | Immediate
+    | BaseRelative
 
-        Just 6 ->
-            Maybe.map2 JumpIfFalse (immOrPosParamValue 1) (immOrPosParamValue 2)
 
-        Just 7 ->
-            Maybe.map3 LessThan (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
+{-| Represents an argument that can be dereferenced based on its parameter mode.
+-}
+type alias Arg =
+    ( ParamType, ParamMode, Int )
 
-        Just 8 ->
-            Maybe.map3 Equals (immOrPosParamValue 1) (immOrPosParamValue 2) (immParamValue 3)
 
-        Just 99 ->
-            Just Halt
+type OpName
+    = AddOp
+    | MulOp
+    | InputOp
+    | OutputOp
+    | JumpIfTrueOp
+    | JumpIfFalseOp
+    | LessThanOp
+    | EqualsOp
+    | AdjustRelativeBaseOp
+    | HaltOp
+
+
+opFromInt : Int -> Maybe ( OpName, List ParamType )
+opFromInt instr =
+    case instr |> modBy 100 of
+        1 ->
+            Just ( AddOp, [ Arg, Arg, Dest ] )
+
+        2 ->
+            Just ( MulOp, [ Arg, Arg, Dest ] )
+
+        3 ->
+            Just ( InputOp, [ Dest ] )
+
+        4 ->
+            Just ( OutputOp, [ Arg ] )
+
+        5 ->
+            Just ( JumpIfTrueOp, [ Arg, Arg ] )
+
+        6 ->
+            Just ( JumpIfFalseOp, [ Arg, Arg ] )
+
+        7 ->
+            Just ( LessThanOp, [ Arg, Arg, Dest ] )
+
+        8 ->
+            Just ( EqualsOp, [ Arg, Arg, Dest ] )
+
+        9 ->
+            Just ( AdjustRelativeBaseOp, [ Arg ] )
+
+        99 ->
+            Just ( HaltOp, [] )
 
         _ ->
             Nothing
@@ -103,16 +151,43 @@ readOp comp =
 {-| Represents a logical operation for the computer. Does not care about immediate or position mode and expects any such
 dereferencing to be handled beforehand.
 -}
-type LogicalOp
-    = Add Int Int Loc
-    | Mul Int Int Loc
-    | Input Loc
-    | Output Loc
-    | JumpIfTrue Int Loc
-    | JumpIfFalse Int Loc
-    | LessThan Int Int Loc
-    | Equals Int Int Loc
-    | Halt
+type alias LogicalOp =
+    ( OpName, List Arg )
+
+
+type alias DereferencedOp =
+    ( OpName, List Int )
+
+
+dereference : Computer -> Arg -> Int
+dereference comp arg =
+    case arg of
+        ( Arg, Position, value ) ->
+            readMem comp value
+
+        ( Arg, Immediate, value ) ->
+            value
+
+        ( Arg, BaseRelative, value ) ->
+            readMem comp (comp.basePtr + value)
+
+        ( Dest, Position, value ) ->
+            value
+
+        ( Dest, Immediate, _ ) ->
+            Debug.todo "Error, destination should not be an immediate"
+
+        ( Dest, BaseRelative, value ) ->
+            comp.basePtr + value
+
+
+dereferenceLogicalOp : Computer -> LogicalOp -> DereferencedOp
+dereferenceLogicalOp comp op =
+    let
+        ( opName, args ) =
+            op
+    in
+    ( opName, args |> List.map (dereference comp) )
 
 
 {-| Represents a low-level state modification to the computer.
@@ -123,47 +198,54 @@ type StateT
     | SetIPtr Loc
     | PopInputAndStore Loc
     | AppendOutput Int
+    | AddBasePtr Int
 
 
 {-| Transforms an operation into a sequence of computer state transformations.
 -}
-execOp : LogicalOp -> List StateT
+execOp : DereferencedOp -> List StateT
 execOp op =
     case op of
-        Add p1 p2 dest ->
+        ( AddOp, [ p1, p2, dest ] ) ->
             [ Store (p1 + p2) dest, AddIPtr 4 ]
 
-        Mul p1 p2 dest ->
+        ( MulOp, [ p1, p2, dest ] ) ->
             [ Store (p1 * p2) dest, AddIPtr 4 ]
 
-        Input dest ->
+        ( InputOp, [ dest ] ) ->
             [ PopInputAndStore dest, AddIPtr 2 ]
 
-        Output dest ->
-            [ AppendOutput dest, AddIPtr 2 ]
+        ( OutputOp, [ p1 ] ) ->
+            [ AppendOutput p1, AddIPtr 2 ]
 
-        JumpIfTrue p1 dest ->
+        ( JumpIfTrueOp, [ p1, dest ] ) ->
             if p1 /= 0 then
                 [ SetIPtr dest ]
 
             else
                 [ AddIPtr 3 ]
 
-        JumpIfFalse p1 dest ->
+        ( JumpIfFalseOp, [ p1, dest ] ) ->
             if p1 == 0 then
                 [ SetIPtr dest ]
 
             else
                 [ AddIPtr 3 ]
 
-        LessThan p1 p2 dest ->
+        ( LessThanOp, [ p1, p2, dest ] ) ->
             [ Store (p1 < p2 |> Util.boolToInt) dest, AddIPtr 4 ]
 
-        Equals p1 p2 dest ->
+        ( EqualsOp, [ p1, p2, dest ] ) ->
             [ Store (p1 == p2 |> Util.boolToInt) dest, AddIPtr 4 ]
 
-        Halt ->
+        ( AdjustRelativeBaseOp, [ p1 ] ) ->
+            [ AddBasePtr p1, AddIPtr 2 ]
+
+        ( HaltOp, [] ) ->
             []
+
+        _ ->
+            Debug.todo "Illegal dereferenced operation"
 
 
 {-| Performs the low-level state modification to the computer.
@@ -172,7 +254,7 @@ execStateT : StateT -> Computer -> Computer
 execStateT stateT comp =
     case stateT of
         Store val dest ->
-            { comp | memory = comp.memory |> Array.set dest val }
+            { comp | memory = comp.memory |> Util.safeArraySet dest val }
 
         AddIPtr jmp ->
             { comp | iPtr = comp.iPtr + jmp }
@@ -186,10 +268,13 @@ execStateT stateT comp =
                     Debug.todo ("Error: Trying to read empty input: " ++ Debug.toString comp)
 
                 head :: tail ->
-                    { comp | memory = comp.memory |> Array.set dest head, inputs = tail }
+                    { comp | memory = comp.memory |> Util.safeArraySet dest head, inputs = tail }
 
         AppendOutput val ->
-            { comp | output = val :: comp.output }
+            { comp | output = comp.output ++ [ val ] }
+
+        AddBasePtr delta ->
+            { comp | basePtr = comp.basePtr + delta }
 
 
 {-| Parses the program input, returning a computer.
@@ -209,6 +294,7 @@ withMem : Array Int -> Computer
 withMem mem =
     { memory = mem
     , iPtr = 0
+    , basePtr = 0
     , inputs = []
     , output = []
     }
@@ -233,7 +319,24 @@ withInputs inputs comp =
 -}
 isHalted : Computer -> Bool
 isHalted comp =
-    (comp |> readOp) == Just Halt
+    (comp |> readOp |> Maybe.map Tuple.first) == Just HaltOp
+
+
+{-| View the internals of involved in executing a single instruction.
+-}
+stepInternals : Computer -> ( Maybe LogicalOp, Maybe DereferencedOp, Maybe (List StateT) )
+stepInternals comp =
+    let
+        logicalOp =
+            comp |> readOp
+
+        dereferencedOp =
+            logicalOp |> Maybe.map (dereferenceLogicalOp comp)
+
+        stateTs =
+            dereferencedOp |> Maybe.map execOp
+    in
+    ( logicalOp, dereferencedOp, stateTs )
 
 
 {-| Executes a single instruction.
@@ -241,16 +344,10 @@ isHalted comp =
 stepOnce : Computer -> Maybe Computer
 stepOnce comp =
     let
-        op =
-            comp |> readOp
-
-        stateTs =
-            op |> Maybe.map execOp
-
-        finalComp =
-            stateTs |> Maybe.map (List.foldl execStateT comp)
+        ( _, _, stateTs ) =
+            stepInternals comp
     in
-    finalComp
+    stateTs |> Maybe.map (List.foldl execStateT comp)
 
 
 {-| Keep on executing until the predicate returns True.
