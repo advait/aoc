@@ -1,8 +1,8 @@
-module Problem11Test exposing (..)
+module Problem12Test exposing (..)
 
 import Basics
 import Expect
-import Problem11 exposing (..)
+import Problem12 exposing (..)
 import Test exposing (..)
 
 

@@ -1,4 +1,4 @@
-module Problem11 exposing (..)
+module Problem12 exposing (..)
 
 import Set exposing (Set)
 import Util
