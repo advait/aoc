@@ -4,7 +4,7 @@ import Prelude
 import Control.Alt (class Alt)
 import Control.Alternative (class Alternative, (<|>))
 import Control.Plus (class Plus)
-import Data.Array (snoc)
+import Data.Array (cons, snoc)
 import Data.Char.Unicode (isDigit)
 import Data.Int (decimal, fromString, fromStringAs)
 import Data.Maybe (Maybe(..))
@@ -93,9 +93,14 @@ repeated parser = Parser $ rec []
 -- | Parser combinator that parses items delimeted by spacers.
 -- | Note that this parser will always succeed to account for empty lists.
 delimitedBy :: forall s a. Parser s -> Parser a -> Parser (Array a)
-delimitedBy (Parser spacer) (Parser item) = repeated pair
-  where
-  pair = (Parser item) <* (Parser spacer)
+delimitedBy (Parser spacer) (Parser item) =
+  let
+    first = cons <$> Parser item
+
+    pair = (Parser spacer) *> (Parser item)
+  in
+    (first <*> (repeated pair))
+      <|> (pure [])
 
 -- | Parses characters while the predicate holds true.
 -- | Note that this parser will always succeed to account for empty lists.
