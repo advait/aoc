@@ -2,13 +2,15 @@ module Test.Parser where
 
 import Parser
 import Prelude
+import Data.Int (Radix, decimal, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (codePointFromChar, dropWhile, stripPrefix)
+import Data.String (codePointFromChar, dropWhile, joinWith, stripPrefix)
 import Data.String.CodeUnits (singleton)
 import Data.String.Pattern (Pattern(..))
 import Data.Tuple (Tuple(..))
 import Test.QuickCheck ((===))
 import Test.Spec (Spec, describe, it)
+import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 spec :: Spec Unit
@@ -41,3 +43,16 @@ spec =
                     Just { next: testS, p: "" }
                   else
                     Nothing
+    describe "delimitedBy" do
+      it "parses newline delimited items" do
+        let
+          items = [ "a", "a", "a" ]
+        let
+          testS = joinWith "\n" items <> "\n"
+        let
+          parser = delimitedBy (stringP "\n") (stringP "a")
+        runParser parser testS `shouldEqual` Just { next: "", p: items }
+    describe "intParser" do
+      it "successfully parses valid integers"
+        $ quickCheck \(Tuple int suffix) ->
+            runParser intParser ((toStringAs decimal int) <> suffix) === Just { next: suffix, p: int }

@@ -5,10 +5,14 @@ import Control.Alt (class Alt)
 import Control.Alternative (class Alternative, (<|>))
 import Control.Plus (class Plus)
 import Data.Array (snoc)
+import Data.Char.Unicode (isDigit)
+import Data.Int (decimal, fromString, fromStringAs)
 import Data.Maybe (Maybe(..))
-import Data.String (codePointFromChar, uncons)
+import Data.String (CodePoint, codePointFromChar, drop, length, singleton, takeWhile, uncons)
 import Data.String.CodeUnits (fromCharArray, toCharArray)
+import Data.String.Unsafe (charAt)
 import Data.Traversable (sequence)
+import Undefined (undefined)
 
 newtype Parser a
   = Parser (String -> Maybe ({ next :: String, p :: a }))
@@ -77,14 +81,55 @@ stringP s =
   in
     fromCharArray <$> sequence charArray
 
+-- | Parser combinator that repeats the provided parser.
+-- | Note that this parser will always succeed to account for empty lists.
+repeated :: forall a. Parser a -> Parser (Array a)
+repeated parser = Parser $ rec []
+  where
+  rec acc input = case runParser parser input of
+    Nothing -> Just { next: input, p: acc }
+    Just { next, p } -> rec (snoc acc p) next
+
 -- | Parser combinator that parses items delimeted by spacers.
 -- | Note that this parser will always succeed to account for empty lists.
 delimitedBy :: forall s a. Parser s -> Parser a -> Parser (Array a)
-delimitedBy (Parser spacer) (Parser item) = Parser (rec [])
+delimitedBy (Parser spacer) (Parser item) = repeated pair
   where
   pair = (Parser item) <* (Parser spacer)
 
-  rec :: Array a -> String -> Maybe ({ next :: String, p :: Array a })
-  rec acc input = case runParser pair input of
-    Nothing -> Just { next: input, p: acc }
-    Just { next, p } -> rec (snoc acc p) next
+-- | Parses characters while the predicate holds true.
+-- | Note that this parser will always succeed to account for empty lists.
+takeWhileP :: (CodePoint -> Boolean) -> Parser String
+takeWhileP pred =
+  Parser \input ->
+    let
+      prefix = takeWhile pred input
+    in
+      Just { next: drop (length prefix) input, p: prefix }
+
+-- | Parses characters while the predicate holds true.
+-- | Note that this parser will always succeed to account for empty lists.
+takeWhileCharP :: (Char -> Boolean) -> Parser String
+takeWhileCharP pred =
+  let
+    charFromCodePoint codePoint = charAt 0 $ singleton codePoint
+  in
+    takeWhileP $ pred <<< charFromCodePoint
+
+-- | Similar to bind but for Maybes within a Parser.
+bindMaybe :: forall a b. Parser a -> (a -> Maybe b) -> Parser b
+bindMaybe parser f =
+  Parser \input -> do
+    { next, p } <- runParser parser input
+    b <- f p
+    Just { next, p: b }
+
+-- | Parses integers.
+intParser :: Parser Int
+intParser =
+  let
+    posIntParser = takeWhileCharP isDigit `bindMaybe` (fromStringAs decimal)
+
+    negIntParser = (\i -> 0 - i) <$> (charP '-' *> posIntParser)
+  in
+    posIntParser <|> negIntParser
