@@ -6,19 +6,21 @@ import Control.Alternative (class Alternative, (<|>))
 import Control.Plus (class Plus)
 import Data.Array (cons, snoc)
 import Data.Char.Unicode (isDigit)
-import Data.Int (decimal, fromString, fromStringAs)
+import Data.Int (decimal, fromStringAs)
 import Data.Maybe (Maybe(..))
 import Data.String (CodePoint, codePointFromChar, drop, length, singleton, takeWhile, uncons)
 import Data.String.CodeUnits (fromCharArray, toCharArray)
 import Data.String.Unsafe (charAt)
 import Data.Traversable (sequence)
-import Undefined (undefined)
 
 newtype Parser a
   = Parser (String -> Maybe ({ next :: String, p :: a }))
 
 runParser :: forall a. Parser a -> (String -> Maybe ({ next :: String, p :: a }))
 runParser (Parser p) = p
+
+runParserEof :: forall a. Parser a -> (String -> Maybe a)
+runParserEof parser = (map (\{ next, p } -> p)) <$> runParser (parser <* stringP "\n" <* eof)
 
 instance functorParser :: Functor Parser where
   map :: forall a b. (a -> b) -> Parser a -> Parser b
