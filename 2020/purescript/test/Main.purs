@@ -10,5 +10,5 @@ import Test.Spec.Runner (runSpec)
 main :: Effect Unit
 main =
   launchAff_ do
-    specs <- discover "Parser"
+    specs <- discover "Test\\..*"
     runSpec [ consoleReporter ] specs
