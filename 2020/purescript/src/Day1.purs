@@ -4,22 +4,12 @@ import Parser
 import Prelude
 import Data.Array (catMaybes, cons, elemIndex, head)
 import Data.Foldable (product)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe)
 import Effect (Effect)
 import Effect.Console (logShow)
-import Node.Encoding (Encoding(..))
-import Node.FS.Sync (readTextFile)
-import Undefined (undefined)
 
 inputParser :: Parser (Array Int)
 inputParser = delimitedBy (stringP "\n") intParser
-
-parseInput :: forall a. String -> Parser a -> Effect a
-parseInput puzzle parser = do
-  fileContents <- readTextFile UTF8 puzzle
-  case runParserEof parser fileContents of
-    Nothing -> undefined
-    Just p -> pure p
 
 partA :: Int -> Array Int -> Maybe (Array Int)
 partA target input =
@@ -47,6 +37,6 @@ partB input =
 
 main :: Effect Unit
 main = do
-  expenses <- parseInput "inputs/1.txt" inputParser
+  expenses <- parsePuzzleInput "inputs/1.txt" inputParser
   logShow $ product <$> partA 2020 expenses
   logShow $ product <$> partB expenses

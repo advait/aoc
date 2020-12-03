@@ -12,14 +12,18 @@ import Data.String (CodePoint, codePointFromChar, drop, length, singleton, takeW
 import Data.String.CodeUnits (fromCharArray, toCharArray)
 import Data.String.Unsafe (charAt)
 import Data.Traversable (sequence)
+import Effect (Effect)
+import Node.Encoding (Encoding(..))
+import Node.FS.Sync (readTextFile)
+import Undefined (undefined)
 
 newtype Parser a
   = Parser (String -> Maybe ({ next :: String, p :: a }))
 
-runParser :: forall a. Parser a -> (String -> Maybe ({ next :: String, p :: a }))
+runParser :: forall a. Parser a -> String -> Maybe ({ next :: String, p :: a })
 runParser (Parser p) = p
 
-runParserEof :: forall a. Parser a -> (String -> Maybe a)
+runParserEof :: forall a. Parser a -> String -> Maybe a
 runParserEof parser = (map (\{ next, p } -> p)) <$> runParser (parser <* stringP "\n" <* eof)
 
 instance functorParser :: Functor Parser where
@@ -64,16 +68,26 @@ eof = Parser f
 
   f _ = Nothing
 
--- | Parses a given constant `Char` `c`
-charP :: Char -> Parser Char
-charP c = Parser f
+-- | Converts a `CodePoint` into a `Char`
+charFromCodePoint :: CodePoint -> Char
+charFromCodePoint codePoint = charAt 0 $ singleton codePoint
+
+-- | Parses a single `Char` that matches the given predicate.
+predCharP :: (Char -> Boolean) -> Parser Char
+predCharP pred = Parser f
   where
   f s = do
-    { head: head, tail: tail } <- uncons s
-    if head == (codePointFromChar c) then
-      Just $ { next: tail, p: c }
+    { head, tail } <- uncons s
+    let
+      char = charFromCodePoint head
+    if pred char then
+      Just $ { next: tail, p: char }
     else
       Nothing
+
+-- | Parses a given constant `Char` `c`
+charP :: Char -> Parser Char
+charP c = predCharP ((==) c)
 
 -- | Parses a given constant `String` `s`.
 stringP :: String -> Parser String
@@ -117,11 +131,7 @@ takeWhileP pred =
 -- | Parses characters while the predicate holds true.
 -- | Note that this parser will always succeed to account for empty lists.
 takeWhileCharP :: (Char -> Boolean) -> Parser String
-takeWhileCharP pred =
-  let
-    charFromCodePoint codePoint = charAt 0 $ singleton codePoint
-  in
-    takeWhileP $ pred <<< charFromCodePoint
+takeWhileCharP pred = takeWhileP $ pred <<< charFromCodePoint
 
 -- | Similar to bind but for Maybes within a Parser.
 bindMaybe :: forall a b. Parser a -> (a -> Maybe b) -> Parser b
@@ -140,3 +150,12 @@ intParser =
     negIntParser = (\i -> 0 - i) <$> (charP '-' *> posIntParser)
   in
     posIntParser <|> negIntParser
+
+-- | Reads the given puzzle input and parses it with the parser.
+-- | Note that this will explode if parsing fails.
+parsePuzzleInput :: forall a. String -> Parser a -> Effect a
+parsePuzzleInput puzzle parser = do
+  fileContents <- readTextFile UTF8 puzzle
+  case runParserEof parser fileContents of
+    Nothing -> undefined
+    Just p -> pure p
