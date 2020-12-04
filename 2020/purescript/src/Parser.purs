@@ -8,7 +8,7 @@ import Data.Array (cons, snoc)
 import Data.Char.Unicode (isDigit)
 import Data.Int (decimal, fromStringAs)
 import Data.Maybe (Maybe(..))
-import Data.String (CodePoint, codePointFromChar, drop, length, singleton, takeWhile, uncons)
+import Data.String (CodePoint, drop, length, singleton, takeWhile, uncons)
 import Data.String.CodeUnits (fromCharArray, toCharArray)
 import Data.String.Unsafe (charAt)
 import Data.Traversable (sequence)
@@ -105,6 +105,13 @@ repeated parser = Parser $ rec []
   rec acc input = case runParser parser input of
     Nothing -> Just { next: input, p: acc }
     Just { next, p } -> rec (snoc acc p) next
+
+-- | Parser combinator that repeats the provided parser at least once.
+repeated1 :: forall a. Parser a -> Parser (Array a)
+repeated1 p =
+  pure cons
+    <*> p
+    <*> repeated p
 
 -- | Parser combinator that parses items delimeted by spacers.
 -- | Note that this parser will always succeed to account for empty lists.
