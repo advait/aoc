@@ -1,9 +1,10 @@
 module Parser where
 
 import Control.Applicative ((<|>))
+import Data.Char (isAlpha, isAlphaNum)
 import Data.Functor.Identity (Identity)
 import Data.Text (Text)
-import Text.Parsec (ParsecT, Stream, char, choice, many, many1, oneOf, sepBy, string)
+import Text.Parsec (ParsecT, Stream, char, choice, many, many1, oneOf, satisfy, sepBy, string)
 import Types
 
 type Parser a = ParsecT Text () Identity a
@@ -24,11 +25,19 @@ integerP = do
   numbers <- many1 $ oneOf "0123456789"
   pure $ DInt $ read $ sign <> numbers
 
+symbolP :: Parser DExpr
+symbolP =
+  let puncP = oneOf "!$',_-./:;?+<=>#%&*@[\\]{|}`^~"
+   in do
+        head <- satisfy isAlpha <|> puncP
+        tail <- many (satisfy isAlphaNum <|> puncP)
+        pure $ DSymbol $ head : tail
+
 listP :: Parser DExpr
 listP = do
   _ <- lexeme $ char '('
   items <- lexeme $ sepBy exprP whitespace
-  _ <- lexeme $ char ')'
+  _ <- char ')'
   pure $ DList items
 
-exprP = choice [integerP, listP]
+exprP = choice [integerP, symbolP, listP]

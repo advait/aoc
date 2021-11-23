@@ -12,6 +12,8 @@ spec = do
   describe "parser" $ do
     it "parses integers" $
       property $ \x -> exprP `shouldParse` DInt (x :: Int)
+    it "parses symbols" $ do
+      exprP `shouldParse` DSymbol "hello"
     it "parses lists" $ do
       exprP `shouldParse` DList []
       exprP `shouldParse` DList [DInt 3]
