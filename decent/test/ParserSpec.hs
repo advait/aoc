@@ -11,7 +11,10 @@ import Types
 spec = do
   describe "parser" $ do
     it "parses integers" $
-      property $ \x -> integer `shouldParse` DInt (x :: Int)
+      property $ \x -> exprP `shouldParse` DInt (x :: Int)
+    it "parses lists" $ do
+      exprP `shouldParse` DList []
+      exprP `shouldParse` DList [DInt 3]
 
 shouldParse :: (Eq a, Show a) => Parser a -> a -> IO ()
 shouldParse parser a =
