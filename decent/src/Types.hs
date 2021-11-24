@@ -11,3 +11,11 @@ instance Show DExpr where
   show (DSymbol symbol) = symbol
   show (DInt int) = show int
   show (DList l) = "(" <> unwords (show <$> l) <> ")"
+
+data DType = TSymbol | TInt | TList
+  deriving (Show)
+
+typeOf :: DExpr -> DType
+typeOf (DSymbol _) = TSymbol
+typeOf (DInt _) = TInt
+typeOf (DList _) = TList

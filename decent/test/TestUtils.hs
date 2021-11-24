@@ -2,6 +2,7 @@ module TestUtils where
 
 import Control.Monad (unless)
 import qualified Data.Text as Text
+import Interpreter
 import Parser
 import Test.Hspec
 import Test.QuickCheck
