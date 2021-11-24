@@ -4,7 +4,7 @@ import Control.Applicative ((<|>))
 import Data.Char (isAlpha, isAlphaNum)
 import Data.Functor.Identity (Identity)
 import Data.Text (Text)
-import Text.Parsec (ParsecT, Stream, char, choice, many, many1, oneOf, satisfy, sepBy, string)
+import Text.Parsec (ParsecT, Stream, char, choice, many, many1, oneOf, satisfy, sepBy, string, try)
 import Types
 
 type Parser a = ParsecT Text () Identity a
@@ -40,4 +40,9 @@ listP = do
   _ <- char ')'
   pure $ DList items
 
-exprP = choice [integerP, symbolP, listP]
+exprP =
+  choice
+    [ try integerP, -- "try" because "-" is an integer prefix as well as a symbol
+      symbolP,
+      listP
+    ]

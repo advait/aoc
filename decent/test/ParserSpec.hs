@@ -9,7 +9,7 @@ import Text.Parsec
 import Types
 
 spec = do
-  describe "parser" $ do
+  describe "Parser" $ do
     it "parses integers" $
       property $ \x -> exprP `shouldParse` DInt (x :: Int)
     it "parses symbols" $ do
