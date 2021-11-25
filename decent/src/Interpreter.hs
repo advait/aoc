@@ -84,6 +84,9 @@ fn2IntIntInt _ _ = undefined
 initState :: IState
 initState = ()
 
--- | Evaluates the interpreter.
-execInterpreter :: Interpreter a -> Either IError a
-execInterpreter interpreter = runExcept $ evalStateT interpreter initState
+execInterpreter :: Interpreter DExpr -> IState -> Either IError (DExpr, IState)
+execInterpreter interp state = runExcept $ runStateT interp state
+
+-- | Runs the interpreter with the initial state, discarding the final state.
+evalInterpreter :: Interpreter a -> Either IError a
+evalInterpreter interpreter = runExcept $ evalStateT interpreter initState

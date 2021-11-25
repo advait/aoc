@@ -4,7 +4,8 @@ import Control.Applicative ((<|>))
 import Data.Char (isAlpha, isAlphaNum)
 import Data.Functor.Identity (Identity)
 import Data.Text (Text)
-import Text.Parsec (ParsecT, Stream, char, choice, many, many1, oneOf, satisfy, sepBy, string, try)
+import qualified Data.Text as Text
+import Text.Parsec (ParseError, ParsecT, Stream, char, choice, many, many1, oneOf, runParser, satisfy, sepBy, string, try)
 import Types
 
 type Parser a = ParsecT Text () Identity a
@@ -39,6 +40,9 @@ listP = do
   items <- lexeme $ sepBy exprP whitespace
   _ <- char ')'
   pure $ DList items
+
+parse :: String -> Either ParseError DExpr
+parse input = runParser exprP () "(source)" (Text.pack input)
 
 exprP =
   choice

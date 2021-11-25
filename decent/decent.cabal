@@ -26,7 +26,6 @@ source-repository head
 library
   exposed-modules:
       Interpreter
-      Lib
       Parser
       Types
   other-modules:
@@ -35,6 +34,8 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , extra
+    , haskeline
     , parsec
     , text
     , transformers
@@ -50,6 +51,8 @@ executable decent-exe
   build-depends:
       base >=4.7 && <5
     , decent
+    , extra
+    , haskeline
     , parsec
     , text
     , transformers
@@ -70,6 +73,8 @@ test-suite decent-test
       QuickCheck
     , base >=4.7 && <5
     , decent
+    , extra
+    , haskeline
     , hspec
     , hspec-discover
     , parsec
