@@ -1,5 +1,6 @@
 module Interpreter where
 
+import Control.Monad (unless)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (Except, ExceptT (ExceptT), runExcept, runExceptT, throwE)
 import qualified Control.Monad.Trans.Except as Except
@@ -27,12 +28,14 @@ data ErrorType
   | ReferenceError
   | TypeError DType DType
   | EmptyStackError
+  | SyntaxError String String
 
 instance Show ErrorType where
   show (ArgumentCountError expected actual) = "ArgumentCountError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
   show ReferenceError = "ReferenceError"
   show (TypeError expected actual) = "TypeError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
   show EmptyStackError = "EmptyStackError (no stack frames for binding new value)"
+  show (SyntaxError expected actual) = "SyntaxError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
 
 -- | Evaluates the given expression, yielding a value.
 eval :: DExpr -> Interpreter DExpr
@@ -60,22 +63,20 @@ eval e@(DList (DSymbol "let" : params)) = do
       expectPairs [] = pure []
       expectPairs _ = iError (ArgumentCountError 2 (length bindings)) e
   bindingPairs <- expectPairs bindings
-  pushEnv
-  sequence_ (uncurry setBinding <$> bindingPairs)
-  -- TODO: If "eval finalExpr" fails, we'll fail to pop the stack
-  finalValue <- eval finalExpr
-  popEnv
-  pure finalValue
+  let (names, values) = unzip bindingPairs
+  call names values finalExpr
 -- Function definition
 eval e@(DList (DSymbol "fn" : outerParams)) = do
-  (params', finalExpr) <- expect2 outerParams
-  params <- expectList params'
-  undefined
+  _ <- expectFnDef e -- Verify the fn call has the right structure
+  pure e
 -- General function calls
 eval e@(DList (name : params)) = do
   binding <- lookup name
   case binding of
-    StaticBinding _ -> iError ReferenceError e
+    StaticBinding fn -> do
+      (targetNames, finalExpr) <- expectFnDef fn
+      evalParams <- sequence (eval <$> params)
+      call targetNames evalParams finalExpr
     BuiltinFn f -> do
       evalParams <- sequence (eval <$> params)
       f evalParams
@@ -141,6 +142,18 @@ setBinding key value = do
   envStack' <- putBinding (envStack state)
   State.put $ state {envStack = envStack'}
 
+-- | Creates a new environemnt, binds the provided values to the given namesl, evaluates the
+-- | expression in the new environment, returns the result, and destroys the created environment.
+call :: [String] -> [DExpr] -> DExpr -> Interpreter DExpr
+call names values expr = do
+  unless (length names == length values) (iError (ArgumentCountError (length names) (length values)) expr)
+  let bindingPairs = zip names values
+  pushEnv
+  sequence_ (uncurry setBinding <$> bindingPairs)
+  finalValue <- eval expr
+  popEnv
+  pure finalValue
+
 -- | Helper to construct and throw errors.
 iError :: ErrorType -> DExpr -> Interpreter a
 iError errorType expr = lift $ throwE $ IError errorType expr
@@ -157,9 +170,22 @@ expect2 :: [a] -> Interpreter (a, a)
 expect2 [p1, p2] = pure (p1, p2)
 expect2 l = iError (ArgumentCountError 2 (length l)) undefined
 
+expect3 :: [a] -> Interpreter (a, a, a)
+expect3 [p1, p2, p3] = pure (p1, p2, p3)
+expect3 l = iError (ArgumentCountError 3 (length l)) undefined
+
 expectList :: DExpr -> Interpreter [DExpr]
 expectList (DList l) = pure l
 expectList e = iError (TypeError TList (typeOf e)) e
+
+expectFnDef :: DExpr -> Interpreter ([String], DExpr)
+expectFnDef expr = do
+  (p1, p2, p3) <- expectList expr >>= expect3
+  fnName <- expectSymbol p1
+  unless (fnName == "fn") (iError (SyntaxError "fn" fnName) expr)
+  params' <- expectList p2
+  params <- sequence (expectSymbol <$> params')
+  pure (params, p3)
 
 expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
 expectFn2 (DList [p1, p2]) = pure (p1, p2)
@@ -168,7 +194,7 @@ expectFn2 e = iError (TypeError TList (typeOf e)) e
 
 fn2IntIntInt :: (Int -> Int -> Int) -> [DExpr] -> Interpreter DExpr
 fn2IntIntInt f [DInt p1, DInt p2] = pure $ DInt $ f p1 p2
-fn2IntIntInt _ _ = undefined
+fn2IntIntInt _ params = iError (ArgumentCountError 2 (length params)) undefined
 
 execInterpreter :: Interpreter DExpr -> IState -> Either IError (DExpr, IState)
 execInterpreter interp state = runExcept $ runStateT interp state
