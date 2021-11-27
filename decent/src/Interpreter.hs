@@ -1,7 +1,8 @@
 module Interpreter where
 
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, runExcept, throwE)
+import Control.Monad.Trans.Except (Except, ExceptT (ExceptT), runExcept, runExceptT, throwE)
+import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
 import qualified Control.Monad.Trans.State as State
 import Data.Map (Map)
@@ -40,13 +41,36 @@ eval i@(DInt _) = pure i
 -- Empty lists evaluate to themselves
 eval i@(DList []) = pure i
 -- Special form function calls
--- def! binds teh name to the given value
+-- def! binds the name to the given value
 eval e@(DList (DSymbol "def!" : params)) = do
   (p1, p2) <- expect2 params
   name <- expectSymbol p1
   value <- eval p2
   _ <- setBinding name value
   pure value
+-- let creates a new environment and binds provided names to values in the new environment
+eval e@(DList (DSymbol "let" : params)) = do
+  (bindings', finalExpr) <- expect2 params
+  bindings <- expectList bindings'
+  let expectPairs :: [DExpr] -> Interpreter [(String, DExpr)]
+      expectPairs (p1 : p2 : tail) = do
+        name <- expectSymbol p1
+        value <- eval p2
+        (:) (name, value) <$> expectPairs tail
+      expectPairs [] = pure []
+      expectPairs _ = iError (ArgumentCountError 2 (length bindings)) e
+  bindingPairs <- expectPairs bindings
+  pushEnv
+  sequence_ (uncurry setBinding <$> bindingPairs)
+  -- TODO: If "eval finalExpr" fails, we'll fail to pop the stack
+  finalValue <- eval finalExpr
+  popEnv
+  pure finalValue
+-- Function definition
+eval e@(DList (DSymbol "fn" : outerParams)) = do
+  (params', finalExpr) <- expect2 outerParams
+  params <- expectList params'
+  undefined
 -- General function calls
 eval e@(DList (name : params)) = do
   binding <- lookup name
@@ -82,6 +106,18 @@ initState =
   IState
     { envStack = [rootBindings]
     }
+
+-- | Creates a new environment (for function calls).
+pushEnv :: Interpreter ()
+pushEnv = State.modify (\s -> s {envStack = mempty : envStack s})
+
+-- | Deletes the current environment.
+popEnv :: Interpreter ()
+popEnv = do
+  state <- State.get
+  case envStack state of
+    [] -> iError EmptyStackError undefined
+    head : tail -> State.put $ state {envStack = tail}
 
 -- | Recursively looks up a value in the environment stack.
 lookup :: DExpr -> Interpreter Binding
@@ -120,6 +156,10 @@ expectInt e = iError (TypeError TInt (typeOf e)) e
 expect2 :: [a] -> Interpreter (a, a)
 expect2 [p1, p2] = pure (p1, p2)
 expect2 l = iError (ArgumentCountError 2 (length l)) undefined
+
+expectList :: DExpr -> Interpreter [DExpr]
+expectList (DList l) = pure l
+expectList e = iError (TypeError TList (typeOf e)) e
 
 expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
 expectFn2 (DList [p1, p2]) = pure (p1, p2)
