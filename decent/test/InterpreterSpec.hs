@@ -34,4 +34,4 @@ shouldEvalTo input expected' = do
 
 -- | Runs the interpreter, throwing if we get an error.
 throwInterpreter :: Interpreter a -> IO a
-throwInterpreter = throwEither . evalInterpreter
+throwInterpreter int = evalInterpreter int >>= throwEither

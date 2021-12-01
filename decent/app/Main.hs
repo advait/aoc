@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad.Trans.Class (lift)
 import Data.List.Extra (trim)
 import Interpreter
 import Parser
@@ -27,7 +28,8 @@ repl = runInputT defaultSettings (loop initState)
               outputStrLn $ show err
               loop state
             Right expr -> do
-              case execInterpreter (eval expr) state of
+              value <- lift $ execInterpreter (eval expr) state
+              case value of
                 Left err -> do
                   outputStrLn $ show err
                   loop state

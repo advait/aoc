@@ -2,7 +2,7 @@ module Interpreter where
 
 import Control.Monad (unless)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (Except, ExceptT (ExceptT), runExcept, runExceptT, throwE)
+import Control.Monad.Trans.Except (ExceptT (ExceptT), runExcept, runExceptT)
 import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
 import qualified Control.Monad.Trans.State as State
@@ -14,7 +14,7 @@ import Prelude hiding (error, lookup)
 
 -- | The core Decent Interpreter which maintains a state IState, can error with IError, and
 -- | evaluates to a value v.
-type Interpreter v = StateT IState (Except IError) v
+type Interpreter v = StateT IState (ExceptT IError IO) v
 
 newtype IState = IState {envStack :: [Bindings]}
 
@@ -156,7 +156,7 @@ call names values expr = do
 
 -- | Helper to construct and throw errors.
 iError :: ErrorType -> DExpr -> Interpreter a
-iError errorType expr = lift $ throwE $ IError errorType expr
+iError errorType expr = lift $ Except.throwE $ IError errorType expr
 
 expectSymbol :: DExpr -> Interpreter String
 expectSymbol (DSymbol s) = pure s
@@ -196,9 +196,9 @@ fn2IntIntInt :: (Int -> Int -> Int) -> [DExpr] -> Interpreter DExpr
 fn2IntIntInt f [DInt p1, DInt p2] = pure $ DInt $ f p1 p2
 fn2IntIntInt _ params = iError (ArgumentCountError 2 (length params)) undefined
 
-execInterpreter :: Interpreter DExpr -> IState -> Either IError (DExpr, IState)
-execInterpreter interp state = runExcept $ runStateT interp state
+execInterpreter :: Interpreter DExpr -> IState -> IO (Either IError (DExpr, IState))
+execInterpreter interp state = runExceptT $ runStateT interp state
 
 -- | Runs the interpreter with the initial state, discarding the final state.
-evalInterpreter :: Interpreter a -> Either IError a
-evalInterpreter interpreter = runExcept $ evalStateT interpreter initState
+evalInterpreter :: Interpreter a -> IO (Either IError a)
+evalInterpreter interpreter = runExceptT $ evalStateT interpreter initState
