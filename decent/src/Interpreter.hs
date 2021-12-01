@@ -1,11 +1,14 @@
 module Interpreter where
 
 import Control.Monad (unless)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (ExceptT), runExcept, runExceptT)
 import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
 import qualified Control.Monad.Trans.State as State
+import Data.IORef (IORef)
+import qualified Data.IORef as IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
 import GHC.Base (divInt)
@@ -91,26 +94,28 @@ data Binding
   = StaticBinding DExpr
   | BuiltinFn ([DExpr] -> Interpreter DExpr)
 
-type Bindings = Map String Binding
+type Bindings = IORef (Map String Binding)
 
-rootBindings :: Bindings
+rootBindings :: IO Bindings
 rootBindings =
-  Map.fromList
-    [ ("+", BuiltinFn $ fn2IntIntInt (+)),
-      ("-", BuiltinFn $ fn2IntIntInt (-)),
-      ("*", BuiltinFn $ fn2IntIntInt (*)),
-      ("/", BuiltinFn $ fn2IntIntInt divInt)
-    ]
+  IORef.newIORef $
+    Map.fromList
+      [ ("+", BuiltinFn $ fn2IntIntInt (+)),
+        ("-", BuiltinFn $ fn2IntIntInt (-)),
+        ("*", BuiltinFn $ fn2IntIntInt (*)),
+        ("/", BuiltinFn $ fn2IntIntInt divInt)
+      ]
 
-initState :: IState
-initState =
-  IState
-    { envStack = [rootBindings]
-    }
+initState :: IO IState
+initState = do
+  rootBindings' <- rootBindings
+  pure $ IState {envStack = [rootBindings']}
 
 -- | Creates a new environment (for function calls).
 pushEnv :: Interpreter ()
-pushEnv = State.modify (\s -> s {envStack = mempty : envStack s})
+pushEnv = do
+  newEnv <- newIORef mempty
+  State.modify (\s -> s {envStack = newEnv : envStack s})
 
 -- | Deletes the current environment.
 popEnv :: Interpreter ()
@@ -127,20 +132,25 @@ lookup expr = do
   state <- State.get
   let lookup' :: [Bindings] -> Interpreter Binding
       lookup' [] = iError ReferenceError expr
-      lookup' (head : tail) = case Map.lookup name head of
-        Nothing -> lookup' tail
-        Just binding -> pure binding
+      lookup' (head : tail) = do
+        env <- readIORef head
+        case Map.lookup name env of
+          Nothing -> lookup' tail
+          Just binding -> pure binding
   lookup' $ envStack state
 
 -- | Sets the key to the given value in the current environment stack.
 setBinding :: String -> DExpr -> Interpreter ()
 setBinding key value = do
-  let putBinding :: [Bindings] -> Interpreter [Bindings]
+  let putBinding :: [Bindings] -> Interpreter ()
       putBinding [] = iError EmptyStackError value
-      putBinding (head : tail) = pure $ Map.insert key (StaticBinding value) head : tail
+      putBinding (head : tail) = do
+        env <- readIORef head
+        let env' = Map.insert key (StaticBinding value) env
+        writeIORef head env'
   state <- State.get
-  envStack' <- putBinding (envStack state)
-  State.put $ state {envStack = envStack'}
+  putBinding (envStack state)
+  pure ()
 
 -- | Creates a new environemnt, binds the provided values to the given namesl, evaluates the
 -- | expression in the new environment, returns the result, and destroys the created environment.
@@ -153,10 +163,6 @@ call names values expr = do
   finalValue <- eval expr
   popEnv
   pure finalValue
-
--- | Helper to construct and throw errors.
-iError :: ErrorType -> DExpr -> Interpreter a
-iError errorType expr = lift $ Except.throwE $ IError errorType expr
 
 expectSymbol :: DExpr -> Interpreter String
 expectSymbol (DSymbol s) = pure s
@@ -201,4 +207,24 @@ execInterpreter interp state = runExceptT $ runStateT interp state
 
 -- | Runs the interpreter with the initial state, discarding the final state.
 evalInterpreter :: Interpreter a -> IO (Either IError a)
-evalInterpreter interpreter = runExceptT $ evalStateT interpreter initState
+evalInterpreter interpreter = do
+  initState' <- initState
+  runExceptT $ evalStateT interpreter initState'
+
+-- Convenience lifted functions
+
+newIORef :: a -> Interpreter (IORef a)
+newIORef = liftIO . IORef.newIORef
+
+readIORef :: IORef a -> Interpreter a
+readIORef = liftIO . IORef.readIORef
+
+writeIORef :: IORef a -> a -> Interpreter ()
+writeIORef ref = liftIO . IORef.writeIORef ref
+
+throwE :: IError -> Interpreter a
+throwE e = lift $ Except.throwE e
+
+-- | Helper to construct and throw errors.
+iError :: ErrorType -> DExpr -> Interpreter a
+iError errorType expr = throwE $ IError errorType expr

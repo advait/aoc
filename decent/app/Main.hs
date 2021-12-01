@@ -2,17 +2,21 @@ module Main where
 
 import Control.Monad.Trans.Class (lift)
 import Data.List.Extra (trim)
+import Data.Version (showVersion)
 import Interpreter
 import Parser
+import Paths_decent (version)
 import System.Console.Haskeline
 
 main :: IO ()
 main = do
-  putStrLn "decent repl 0.0.1"
+  putStrLn $ "decent repl " <> showVersion version
   repl
 
 repl :: IO ()
-repl = runInputT defaultSettings (loop initState)
+repl = do
+  initState' <- initState
+  runInputT defaultSettings (loop initState')
   where
     loop :: IState -> InputT IO ()
     loop state = do
