@@ -7,6 +7,7 @@ import Interpreter
 import Parser
 import Paths_decent (version)
 import System.Console.Haskeline
+import Types
 
 main :: IO ()
 main = do

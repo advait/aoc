@@ -11,34 +11,10 @@ import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Env
 import GHC.Base (divInt)
 import Types
 import Prelude hiding (error, lookup)
-
--- | The core Decent Interpreter which maintains a state IState, can error with IError, and
--- | evaluates to a value v.
-type Interpreter v = StateT IState (ExceptT IError IO) v
-
-newtype IState = IState {envStack :: [Bindings]}
-
-data IError = IError ErrorType DExpr
-
-instance Show IError where
-  show (IError errorType expr) = show errorType <> "\nwhile evaluating expression '" <> show expr <> "'"
-
-data ErrorType
-  = ArgumentCountError Int Int
-  | ReferenceError
-  | TypeError DType DType
-  | EmptyStackError
-  | SyntaxError String String
-
-instance Show ErrorType where
-  show (ArgumentCountError expected actual) = "ArgumentCountError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
-  show ReferenceError = "ReferenceError"
-  show (TypeError expected actual) = "TypeError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
-  show EmptyStackError = "EmptyStackError (no stack frames for binding new value)"
-  show (SyntaxError expected actual) = "SyntaxError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
 
 -- | Evaluates the given expression, yielding a value.
 eval :: DExpr -> Interpreter DExpr
@@ -90,68 +66,6 @@ eval i@(DSymbol s) = do
     StaticBinding b -> pure b
     BuiltinFn _ -> iError ReferenceError i
 
-data Binding
-  = StaticBinding DExpr
-  | BuiltinFn ([DExpr] -> Interpreter DExpr)
-
-type Bindings = IORef (Map String Binding)
-
-rootBindings :: IO Bindings
-rootBindings =
-  IORef.newIORef $
-    Map.fromList
-      [ ("+", BuiltinFn $ fn2IntIntInt (+)),
-        ("-", BuiltinFn $ fn2IntIntInt (-)),
-        ("*", BuiltinFn $ fn2IntIntInt (*)),
-        ("/", BuiltinFn $ fn2IntIntInt divInt)
-      ]
-
-initState :: IO IState
-initState = do
-  rootBindings' <- rootBindings
-  pure $ IState {envStack = [rootBindings']}
-
--- | Creates a new environment (for function calls).
-pushEnv :: Interpreter ()
-pushEnv = do
-  newEnv <- newIORef mempty
-  State.modify (\s -> s {envStack = newEnv : envStack s})
-
--- | Deletes the current environment.
-popEnv :: Interpreter ()
-popEnv = do
-  state <- State.get
-  case envStack state of
-    [] -> iError EmptyStackError undefined
-    head : tail -> State.put $ state {envStack = tail}
-
--- | Recursively looks up a value in the environment stack.
-lookup :: DExpr -> Interpreter Binding
-lookup expr = do
-  name <- expectSymbol expr
-  state <- State.get
-  let lookup' :: [Bindings] -> Interpreter Binding
-      lookup' [] = iError ReferenceError expr
-      lookup' (head : tail) = do
-        env <- readIORef head
-        case Map.lookup name env of
-          Nothing -> lookup' tail
-          Just binding -> pure binding
-  lookup' $ envStack state
-
--- | Sets the key to the given value in the current environment stack.
-setBinding :: String -> DExpr -> Interpreter ()
-setBinding key value = do
-  let putBinding :: [Bindings] -> Interpreter ()
-      putBinding [] = iError EmptyStackError value
-      putBinding (head : tail) = do
-        env <- readIORef head
-        let env' = Map.insert key (StaticBinding value) env
-        writeIORef head env'
-  state <- State.get
-  putBinding (envStack state)
-  pure ()
-
 -- | Creates a new environemnt, binds the provided values to the given namesl, evaluates the
 -- | expression in the new environment, returns the result, and destroys the created environment.
 call :: [String] -> [DExpr] -> DExpr -> Interpreter DExpr
@@ -164,44 +78,23 @@ call names values expr = do
   popEnv
   pure finalValue
 
-expectSymbol :: DExpr -> Interpreter String
-expectSymbol (DSymbol s) = pure s
-expectSymbol e = iError (TypeError TSymbol (typeOf e)) e
+-- | Bindings for builtin functions and values.
+builtins :: IO Env
+builtins =
+  IORef.newIORef $
+    Map.fromList
+      [ ("+", BuiltinFn $ fn2IntIntInt (+)),
+        ("-", BuiltinFn $ fn2IntIntInt (-)),
+        ("*", BuiltinFn $ fn2IntIntInt (*)),
+        ("/", BuiltinFn $ fn2IntIntInt divInt)
+      ]
 
-expectInt :: DExpr -> Interpreter Int
-expectInt (DInt i) = pure i
-expectInt e = iError (TypeError TInt (typeOf e)) e
+initState :: IO IState
+initState = do
+  builtins' <- builtins
+  pure $ IState {envStack = [builtins']}
 
-expect2 :: [a] -> Interpreter (a, a)
-expect2 [p1, p2] = pure (p1, p2)
-expect2 l = iError (ArgumentCountError 2 (length l)) undefined
-
-expect3 :: [a] -> Interpreter (a, a, a)
-expect3 [p1, p2, p3] = pure (p1, p2, p3)
-expect3 l = iError (ArgumentCountError 3 (length l)) undefined
-
-expectList :: DExpr -> Interpreter [DExpr]
-expectList (DList l) = pure l
-expectList e = iError (TypeError TList (typeOf e)) e
-
-expectFnDef :: DExpr -> Interpreter ([String], DExpr)
-expectFnDef expr = do
-  (p1, p2, p3) <- expectList expr >>= expect3
-  fnName <- expectSymbol p1
-  unless (fnName == "fn") (iError (SyntaxError "fn" fnName) expr)
-  params' <- expectList p2
-  params <- sequence (expectSymbol <$> params')
-  pure (params, p3)
-
-expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
-expectFn2 (DList [p1, p2]) = pure (p1, p2)
-expectFn2 e@(DList l) = iError (ArgumentCountError 2 (length l)) e
-expectFn2 e = iError (TypeError TList (typeOf e)) e
-
-fn2IntIntInt :: (Int -> Int -> Int) -> [DExpr] -> Interpreter DExpr
-fn2IntIntInt f [DInt p1, DInt p2] = pure $ DInt $ f p1 p2
-fn2IntIntInt _ params = iError (ArgumentCountError 2 (length params)) undefined
-
+-- | Runs the interpreter with the provided state, yielding the result and the next state.
 execInterpreter :: Interpreter DExpr -> IState -> IO (Either IError (DExpr, IState))
 execInterpreter interp state = runExceptT $ runStateT interp state
 
@@ -210,21 +103,3 @@ evalInterpreter :: Interpreter a -> IO (Either IError a)
 evalInterpreter interpreter = do
   initState' <- initState
   runExceptT $ evalStateT interpreter initState'
-
--- Convenience lifted functions
-
-newIORef :: a -> Interpreter (IORef a)
-newIORef = liftIO . IORef.newIORef
-
-readIORef :: IORef a -> Interpreter a
-readIORef = liftIO . IORef.readIORef
-
-writeIORef :: IORef a -> a -> Interpreter ()
-writeIORef ref = liftIO . IORef.writeIORef ref
-
-throwE :: IError -> Interpreter a
-throwE e = lift $ Except.throwE e
-
--- | Helper to construct and throw errors.
-iError :: ErrorType -> DExpr -> Interpreter a
-iError errorType expr = throwE $ IError errorType expr
