@@ -18,13 +18,18 @@ import Text.Parsec (ParsecT)
 -- | evaluates to a value v.
 type Interpreter v = StateT IState (ExceptT IError IO) v
 
+-- | The interpreter state.
 data IState = IState
-  { envStack :: [Env],
+  { -- Bindings are stored in nested environments.
+    envStack :: [Env],
+    -- Expressions are evaluated recursively, stored on this stack for better error tracing.
     exprStack :: [DExpr]
   }
 
+-- | An environment is a mapping from names to expressions.
 type Env = IORef (Map String DExpr)
 
+-- | An interpreter error.
 data IError = IError ErrorType [DExpr]
 
 instance Show IError where
@@ -50,7 +55,7 @@ instance Show ErrorType where
 data DExpr
   = DSymbol String
   | DInt Int
-  | DList [DExpr] -- A DList is a lisp S-Expression
+  | DList [DExpr]
   | DFunction ([DExpr] -> Interpreter DExpr)
 
 instance Show DExpr where
@@ -166,19 +171,12 @@ expectList :: DExpr -> Interpreter [DExpr]
 expectList (DList l) = pure l
 expectList e = iError (TypeError TList (typeOf e))
 
-expectFnDef :: DExpr -> Interpreter ([String], DExpr)
-expectFnDef expr = do
-  (p1, p2, p3) <- expectList expr >>= expect3
-  fnName <- expectSymbol p1
-  unless (fnName == "fn") (iError (SyntaxError "fn" fnName))
-  params' <- expectList p2
+expectFnDef :: [DExpr] -> Interpreter ([String], DExpr)
+expectFnDef params = do
+  (p1, p2) <- expect2 params
+  params' <- expectList p1
   params <- sequence (expectSymbol <$> params')
-  pure (params, p3)
-
-expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
-expectFn2 (DList [p1, p2]) = pure (p1, p2)
-expectFn2 e@(DList l) = iError (ArgumentCountError 2 (length l))
-expectFn2 e = iError (TypeError TList (typeOf e))
+  pure (params, p2)
 
 fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
 fn2IntIntInt f =

@@ -11,7 +11,7 @@ import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Env
+import Env (bind, bindAll, lookup, popEnv, pushEnv)
 import GHC.Base (divInt)
 import Types
 import Prelude hiding (error, lookup)
@@ -74,9 +74,8 @@ eval' = do
       pure finalValue
 
     -- Function definition
-    special "fn" _ = do
-      e <- getCurExpr
-      (paramNames, result) <- expectFnDef e
+    special "fn" params = do
+      (paramNames, result) <- expectFnDef params
       makeClosure paramNames result
 
     -- do statement
@@ -104,7 +103,20 @@ eval' = do
       pure $ DSymbol $ show $ typeOf p1
 
     -- list
-    special "list" params = pure $ DList params
+    special "count" params = do
+      p1 <- expect1 params >>= expectList
+      pure $ DInt $ length p1
+    special "head" params = do
+      p1 <- expect1 params >>= expectList
+      pure $ head p1
+    special "tail" params = do
+      p1 <- expect1 params >>= expectList
+      pure $ DList $ tail p1
+
+    -- quote
+    special "quote" params = do
+      expect1 params
+
     -- General function calls
     special first params = general (DSymbol first) params
 
@@ -120,8 +132,8 @@ eval' = do
 
 -- | A closure is created whenever a function is defined. It consists of three things:
 -- | 1. The current environment that the function body can refer to.
--- | 2. A list of parameters
--- | 3. An expression to be evaluated when the function is called
+-- | 2. A list of parameters.
+-- | 3. The function body - an expression to be evaluated when the function is called.
 makeClosure :: [String] -> DExpr -> Interpreter DExpr
 makeClosure names value = do
   closedEnv <- getEnv
@@ -154,9 +166,11 @@ builtins =
           DFunction $ \params -> do
             (p1, p2) <- expect2 params
             pure $ toDBool $ p1 == p2
-        )
+        ),
+        ("list", DFunction $ \params -> pure $ DList params)
       ]
 
+-- | The initial state with builtins bound.
 initState :: IO IState
 initState = do
   builtins' <- builtins

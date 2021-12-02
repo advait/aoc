@@ -2,11 +2,11 @@ module ParserSpec where
 
 import Control.Monad (unless)
 import qualified Data.Text as Text
-import Parser
-import Test.Hspec
-import Test.QuickCheck
-import Text.Parsec
-import Types
+import Parser (Parser, exprP)
+import Test.Hspec (describe, it)
+import Test.QuickCheck (Testable (property))
+import Text.Parsec (runParser)
+import Types (DExpr (DInt, DList, DSymbol))
 
 spec = do
   describe "Parser" $ do

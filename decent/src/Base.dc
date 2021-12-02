@@ -1,0 +1,11 @@
+;; The Decent Base library
+
+;; Returns whether the given parameter is a list.
+(def! list? (fn (l)
+  (= (typeof l) (quote List))
+))
+
+;; Returns whether the given list is empty.
+(def! empty? (fn (l)
+  (= 0 (count l))
+))

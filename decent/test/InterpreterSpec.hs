@@ -2,13 +2,12 @@ module InterpreterSpec where
 
 import Control.Monad (unless)
 import qualified Data.Text as Text
-import Interpreter
-import Parser
-import Test.Hspec
-import Test.QuickCheck
-import TestUtils
-import Text.Parsec
-import Types
+import Interpreter (eval, evalInterpreter)
+import Parser (exprP)
+import Test.Hspec (describe, it)
+import Test.QuickCheck ()
+import TestUtils (throwEither, throwParser)
+import Types (Interpreter)
 
 spec = do
   describe "Interpreter" $ do
