@@ -18,14 +18,19 @@ import Text.Parsec (ParsecT)
 -- | evaluates to a value v.
 type Interpreter v = StateT IState (ExceptT IError IO) v
 
-newtype IState = IState {envStack :: [Env]}
+data IState = IState
+  { envStack :: [Env],
+    exprStack :: [DExpr]
+  }
 
 type Env = IORef (Map String DExpr)
 
-data IError = IError ErrorType DExpr
+data IError = IError ErrorType [DExpr]
 
 instance Show IError where
-  show (IError errorType expr) = show errorType <> "\nwhile evaluating expression '" <> show expr <> "'"
+  show (IError errorType exprStack) = show errorType <> "\nwhile evaluating expression:\n" <> showStack
+    where
+      showStack = unlines ((<>) "  " . show <$> exprStack)
 
 data ErrorType
   = ArgumentCountError Int Int
@@ -103,8 +108,10 @@ throwE :: IError -> Interpreter a
 throwE e = lift $ Except.throwE e
 
 -- | Helper to construct and throw errors.
-iError :: ErrorType -> DExpr -> Interpreter a
-iError errorType expr = throwE $ IError errorType expr
+iError :: ErrorType -> Interpreter a
+iError errorType = do
+  callStack <- getCallStack
+  throwE $ IError errorType callStack
 
 getEnv :: Interpreter [Env]
 getEnv = envStack <$> StateT.get
@@ -115,45 +122,63 @@ setEnv envStack = do
   let s' = s {envStack = envStack}
   StateT.put s'
 
+pushExpr :: DExpr -> Interpreter ()
+pushExpr expr = do
+  s <- StateT.get
+  let s' = s {exprStack = expr : exprStack s}
+  StateT.put s'
+
+popExpr :: Interpreter ()
+popExpr = do
+  s <- StateT.get
+  let s' = s {exprStack = tail $ exprStack s}
+  StateT.put s'
+
+getCallStack :: Interpreter [DExpr]
+getCallStack = exprStack <$> StateT.get
+
+getCurExpr :: Interpreter DExpr
+getCurExpr = head <$> getCallStack
+
 -- Convenience expression assertions
 
 expectSymbol :: DExpr -> Interpreter String
 expectSymbol (DSymbol s) = pure s
-expectSymbol e = iError (TypeError TSymbol (typeOf e)) e
+expectSymbol e = iError (TypeError TSymbol (typeOf e))
 
 expectInt :: DExpr -> Interpreter Int
 expectInt (DInt i) = pure i
-expectInt e = iError (TypeError TInt (typeOf e)) e
+expectInt e = iError (TypeError TInt (typeOf e))
 
 expect1 :: [a] -> Interpreter a
 expect1 [p1] = pure p1
-expect1 l = iError (ArgumentCountError 1 (length l)) undefined
+expect1 l = iError (ArgumentCountError 1 (length l))
 
 expect2 :: [a] -> Interpreter (a, a)
 expect2 [p1, p2] = pure (p1, p2)
-expect2 l = iError (ArgumentCountError 2 (length l)) undefined
+expect2 l = iError (ArgumentCountError 2 (length l))
 
 expect3 :: [a] -> Interpreter (a, a, a)
 expect3 [p1, p2, p3] = pure (p1, p2, p3)
-expect3 l = iError (ArgumentCountError 3 (length l)) undefined
+expect3 l = iError (ArgumentCountError 3 (length l))
 
 expectList :: DExpr -> Interpreter [DExpr]
 expectList (DList l) = pure l
-expectList e = iError (TypeError TList (typeOf e)) e
+expectList e = iError (TypeError TList (typeOf e))
 
 expectFnDef :: DExpr -> Interpreter ([String], DExpr)
 expectFnDef expr = do
   (p1, p2, p3) <- expectList expr >>= expect3
   fnName <- expectSymbol p1
-  unless (fnName == "fn") (iError (SyntaxError "fn" fnName) expr)
+  unless (fnName == "fn") (iError (SyntaxError "fn" fnName))
   params' <- expectList p2
   params <- sequence (expectSymbol <$> params')
   pure (params, p3)
 
 expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
 expectFn2 (DList [p1, p2]) = pure (p1, p2)
-expectFn2 e@(DList l) = iError (ArgumentCountError 2 (length l)) e
-expectFn2 e = iError (TypeError TList (typeOf e)) e
+expectFn2 e@(DList l) = iError (ArgumentCountError 2 (length l))
+expectFn2 e = iError (TypeError TList (typeOf e))
 
 fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
 fn2IntIntInt f =

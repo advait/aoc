@@ -18,7 +18,7 @@ popEnv :: Interpreter ()
 popEnv = do
   env <- getEnv
   case env of
-    [] -> iError EmptyStackError undefined
+    [] -> iError EmptyStackError
     head : tail -> setEnv tail
 
 -- | Recursively looks up a value in the environment stack.
@@ -27,7 +27,7 @@ lookup expr = do
   name <- expectSymbol expr
   env <- getEnv
   let lookup' :: [Env] -> Interpreter DExpr
-      lookup' [] = iError ReferenceError expr
+      lookup' [] = iError ReferenceError
       lookup' (head : tail) = do
         env <- readIORef head
         case Map.lookup name env of
@@ -39,7 +39,7 @@ lookup expr = do
 bind :: String -> DExpr -> Interpreter ()
 bind key value = do
   let putBinding :: [Env] -> Interpreter ()
-      putBinding [] = iError EmptyStackError value
+      putBinding [] = iError EmptyStackError
       putBinding (head : tail) = do
         env <- readIORef head
         let env' = Map.insert key value env
@@ -50,6 +50,6 @@ bind key value = do
 -- | Binds all of the names to the given values in the current environment.
 bindAll :: [String] -> [DExpr] -> Interpreter ()
 bindAll names values = do
-  unless (length names == length values) (iError (ArgumentCountError (length names) (length values)) undefined)
+  unless (length names == length values) (iError (ArgumentCountError (length names) (length values)))
   let bindingPairs = zip names values
   sequence_ (uncurry bind <$> bindingPairs)
