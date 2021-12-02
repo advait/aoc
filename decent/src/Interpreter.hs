@@ -179,6 +179,12 @@ builtins =
             p1 <- expect1 params
             liftIO $ print p1
             pure p1
+        ),
+        ( "read-file",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectString
+            content <- liftIO $ readFile p1
+            pure $ DString content
         )
       ]
 
