@@ -22,6 +22,8 @@ spec = do
       "(let (a 1 b 2) (+ a b))" `shouldEvalTo` "3"
       "(let (a 1) (+ (let (a 2) a) a))" `shouldEvalTo` "3"
     it "handles functions" $ do
+      "((fn (a) (* a 2)) 2)" `shouldEvalTo` "4"
+      "((fn (a b) (+ a b)) 2 3)" `shouldEvalTo` "5"
       "(let (double (fn (a) (* a 2))) (double 1))" `shouldEvalTo` "2"
       "(let (double (fn (a) (* a 2))) (double (double 2))))" `shouldEvalTo` "8"
 

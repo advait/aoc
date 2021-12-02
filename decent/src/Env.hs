@@ -16,38 +16,40 @@ pushEnv = do
 -- | Deletes the current environment.
 popEnv :: Interpreter ()
 popEnv = do
-  state <- State.get
-  case envStack state of
+  env <- getEnv
+  case env of
     [] -> iError EmptyStackError undefined
-    head : tail -> State.put $ state {envStack = tail}
+    head : tail -> setEnv tail
 
 -- | Recursively looks up a value in the environment stack.
-lookup :: DExpr -> Interpreter Binding
+lookup :: DExpr -> Interpreter DExpr
 lookup expr = do
   name <- expectSymbol expr
-  state <- State.get
-  let lookup' :: [Env] -> Interpreter Binding
+  env <- getEnv
+  let lookup' :: [Env] -> Interpreter DExpr
       lookup' [] = iError ReferenceError expr
       lookup' (head : tail) = do
         env <- readIORef head
         case Map.lookup name env of
           Nothing -> lookup' tail
-          Just binding -> pure binding
-  lookup' $ envStack state
+          Just expr -> pure expr
+  lookup' env
 
--- | Sets the key to the given value in the current environment stack.
+-- | Sets the key to the given value in the current environment.
 setBinding :: String -> DExpr -> Interpreter ()
 setBinding key value = do
   let putBinding :: [Env] -> Interpreter ()
       putBinding [] = iError EmptyStackError value
       putBinding (head : tail) = do
         env <- readIORef head
-        let env' = Map.insert key (StaticBinding value) env
+        let env' = Map.insert key value env
         writeIORef head env'
-  state <- State.get
-  putBinding (envStack state)
-  pure ()
+  env <- getEnv
+  putBinding env
 
-fn2IntIntInt :: (Int -> Int -> Int) -> [DExpr] -> Interpreter DExpr
-fn2IntIntInt f [DInt p1, DInt p2] = pure $ DInt $ f p1 p2
-fn2IntIntInt _ params = iError (ArgumentCountError 2 (length params)) undefined
+-- | Binds all of the names to the given values in the current environment.
+bindAll :: [String] -> [DExpr] -> Interpreter ()
+bindAll names values = do
+  unless (length names == length values) (iError (ArgumentCountError (length names) (length values)) undefined)
+  let bindingPairs = zip names values
+  sequence_ (uncurry setBinding <$> bindingPairs)
