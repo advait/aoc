@@ -97,22 +97,6 @@ eval' = do
           | e == dFalse -> eval p3
           | otherwise -> eval p2
 
-    -- typeof
-    special "typeof" params = do
-      p1 <- expect1 params
-      pure $ DSymbol $ show $ typeOf p1
-
-    -- list
-    special "count" params = do
-      p1 <- expect1 params >>= expectList
-      pure $ DInt $ length p1
-    special "head" params = do
-      p1 <- expect1 params >>= expectList
-      pure $ head p1
-    special "tail" params = do
-      p1 <- expect1 params >>= expectList
-      pure $ DList $ tail p1
-
     -- quote
     special "quote" params = do
       expect1 params
@@ -167,7 +151,27 @@ builtins =
             (p1, p2) <- expect2 params
             pure $ toDBool $ p1 == p2
         ),
-        ("list", DFunction $ \params -> pure $ DList params)
+        ( "typeof",
+          DFunction $ \params -> do
+            p1 <- expect1 params
+            pure $ DSymbol $ show $ typeOf p1
+        ),
+        ("list", DFunction $ \params -> pure $ DList params),
+        ( "count",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectList
+            pure $ DInt $ length p1
+        ),
+        ( "head",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectList
+            pure $ head p1
+        ),
+        ( "tail",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectList
+            pure $ DList $ tail p1
+        )
       ]
 
 -- | The initial state with builtins bound.
