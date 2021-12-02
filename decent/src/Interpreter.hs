@@ -30,7 +30,7 @@ eval e@(DList (DSymbol "def!" : params)) = do
   (p1, p2) <- expect2 params
   name <- expectSymbol p1
   value <- eval p2
-  setBinding name value
+  bind name value
   pure value
 -- let creates a new environment and binds provided names to values in the new environment
 eval e@(DList (DSymbol "let" : params)) = do
@@ -54,6 +54,29 @@ eval e@(DList (DSymbol "let" : params)) = do
 eval e@(DList (DSymbol "fn" : outerParams)) = do
   (paramNames, result) <- expectFnDef e
   makeClosure paramNames result
+-- do statement
+eval e@(DList (DSymbol "do" : params)) = do
+  let loop [expr] = eval expr
+      loop (head : tail) = do
+        eval head
+        loop tail
+      loop [] = iError (ArgumentCountError 1 (length params)) e
+  loop params
+-- if statement
+eval e@(DList (DSymbol "if" : params)) = do
+  (p1, p2, p3) <- expect3 params
+  v1 <- eval p1
+  case v1 of
+    e
+      | e == dNil -> eval p3
+      | e == dFalse -> eval p3
+      | otherwise -> eval p2
+-- typeof
+eval e@(DList (DSymbol "typeof" : params)) = do
+  p1 <- expect1 params
+  pure $ DSymbol $ show $ typeOf p1
+-- list
+eval e@(DList (DSymbol "list" : params)) = pure $ DList params
 -- General function calls
 eval e@(DList (first : params)) = do
   first' <- eval first
@@ -91,10 +114,18 @@ builtins :: IO Env
 builtins =
   IORef.newIORef $
     Map.fromList
-      [ ("+", fn2IntIntInt (+)),
+      [ ("nil", dNil),
+        ("true", dTrue),
+        ("false", dFalse),
+        ("+", fn2IntIntInt (+)),
         ("-", fn2IntIntInt (-)),
         ("*", fn2IntIntInt (*)),
-        ("/", fn2IntIntInt divInt)
+        ("/", fn2IntIntInt divInt),
+        ( "=",
+          DFunction $ \params -> do
+            (p1, p2) <- expect2 params
+            pure $ toDBool $ p1 == p2
+        )
       ]
 
 initState :: IO IState

@@ -7,9 +7,12 @@ import Control.Monad.Trans.Except (ExceptT)
 import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT)
 import qualified Control.Monad.Trans.State as StateT
+import Data.Functor.Identity (Identity)
 import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
+import Data.Text (Text)
+import Text.Parsec (ParsecT)
 
 -- | The core Decent Interpreter which maintains a state IState, can error with IError, and
 -- | evaluates to a value v.
@@ -71,6 +74,20 @@ typeOf (DInt _) = TInt
 typeOf (DList _) = TList
 typeOf (DFunction _) = TFunction
 
+-- Special values (you may regret keeping these as symbols...)
+dTrue :: DExpr
+dTrue = DSymbol "true"
+
+dFalse :: DExpr
+dFalse = DSymbol "false"
+
+toDBool :: Bool -> DExpr
+toDBool True = dTrue
+toDBool False = dFalse
+
+dNil :: DExpr
+dNil = DList []
+
 -- Convenience lifted functions
 
 newIORef :: a -> Interpreter (IORef a)
@@ -107,6 +124,10 @@ expectSymbol e = iError (TypeError TSymbol (typeOf e)) e
 expectInt :: DExpr -> Interpreter Int
 expectInt (DInt i) = pure i
 expectInt e = iError (TypeError TInt (typeOf e)) e
+
+expect1 :: [a] -> Interpreter a
+expect1 [p1] = pure p1
+expect1 l = iError (ArgumentCountError 1 (length l)) undefined
 
 expect2 :: [a] -> Interpreter (a, a)
 expect2 [p1, p2] = pure (p1, p2)

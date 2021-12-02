@@ -36,8 +36,8 @@ lookup expr = do
   lookup' env
 
 -- | Sets the key to the given value in the current environment.
-setBinding :: String -> DExpr -> Interpreter ()
-setBinding key value = do
+bind :: String -> DExpr -> Interpreter ()
+bind key value = do
   let putBinding :: [Env] -> Interpreter ()
       putBinding [] = iError EmptyStackError value
       putBinding (head : tail) = do
@@ -52,4 +52,4 @@ bindAll :: [String] -> [DExpr] -> Interpreter ()
 bindAll names values = do
   unless (length names == length values) (iError (ArgumentCountError (length names) (length values)) undefined)
   let bindingPairs = zip names values
-  sequence_ (uncurry setBinding <$> bindingPairs)
+  sequence_ (uncurry bind <$> bindingPairs)

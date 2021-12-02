@@ -1,11 +1,14 @@
 module Parser where
 
-import Control.Applicative ((<|>))
+import Control.Applicative (optional, (<|>))
 import Data.Char (isAlpha, isAlphaNum)
 import Data.Functor.Identity (Identity)
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Text.Parsec (ParseError, ParsecT, Stream, char, choice, many, many1, oneOf, runParser, satisfy, sepBy, string, try)
+import qualified Text.Parsec as Parsec
+import Text.Parsec.Combinator (eof)
 import Types
 
 type Parser a = ParsecT Text () Identity a
@@ -28,7 +31,7 @@ integerP = do
 
 symbolP :: Parser DExpr
 symbolP =
-  let puncP = oneOf "!$',_-./:;?+<=>#%&*@[\\]{|}`^~"
+  let puncP = oneOf "!$',_-./:?+<=>#%&*@[\\]{|}`^~"
    in do
         head <- satisfy isAlpha <|> puncP
         tail <- many (satisfy isAlphaNum <|> puncP)
@@ -41,12 +44,41 @@ listP = do
   _ <- char ')'
   pure $ DList items
 
-parse :: String -> Either ParseError DExpr
-parse input = runParser exprP () "(source)" (Text.pack input)
-
+-- | Main expression parser
+exprP :: Parser DExpr
 exprP =
   choice
     [ try integerP, -- "try" because "-" is an integer prefix as well as a symbol
       symbolP,
       listP
     ]
+
+-- | Comment parser
+commentP :: Parser ()
+commentP = do
+  _ <- char ';'
+  _ <- many $ satisfy $ (/=) '\n'
+  (() <$ char '\n') <|> eof
+
+-- | Parses a line from the repl, ignoring comments.
+replLineP :: Parser (Maybe DExpr)
+replLineP = do
+  whitespace
+  expr <- optional $ lexeme exprP
+  optional commentP
+  eof
+  pure expr
+
+-- | Parses a file, stripping comments and returning the list of expressions.
+fileP :: Parser [DExpr]
+fileP = do
+  whitespace
+  exprs <- catMaybes <$> many (exprP' <|> commentP')
+  eof
+  pure exprs
+  where
+    exprP' = lexeme (Just <$> exprP)
+    commentP' = Nothing <$ commentP
+
+parse :: String -> Either ParseError DExpr
+parse input = Parsec.parse exprP "" (Text.pack input)
