@@ -6,6 +6,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT)
 import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT)
+import qualified Control.Monad.Trans.State as StateT
 import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
@@ -14,13 +15,9 @@ import Data.Map (Map)
 -- | evaluates to a value v.
 type Interpreter v = StateT IState (ExceptT IError IO) v
 
-data Binding
-  = StaticBinding DExpr
-  | BuiltinFn ([DExpr] -> Interpreter DExpr)
-
-type Env = IORef (Map String Binding)
-
 newtype IState = IState {envStack :: [Env]}
+
+type Env = IORef (Map String DExpr)
 
 data IError = IError ErrorType DExpr
 
@@ -46,20 +43,33 @@ data DExpr
   = DSymbol String
   | DInt Int
   | DList [DExpr] -- A DList is a lisp S-Expression
-  deriving (Eq)
+  | DFunction ([DExpr] -> Interpreter DExpr)
 
 instance Show DExpr where
   show (DSymbol symbol) = symbol
   show (DInt int) = show int
   show (DList l) = "(" <> unwords (show <$> l) <> ")"
+  show (DFunction _) = "#<function>"
 
-data DType = TSymbol | TInt | TList
-  deriving (Show)
+instance Eq DExpr where
+  (DSymbol a) == (DSymbol b) = a == b
+  (DInt a) == (DInt b) = a == b
+  (DList a) == (DList b) = a == b
+  _ == _ = False
+
+data DType = TSymbol | TInt | TList | TFunction
+
+instance Show DType where
+  show TSymbol = "Symbol"
+  show TInt = "Int"
+  show TList = "List"
+  show TFunction = "Function"
 
 typeOf :: DExpr -> DType
 typeOf (DSymbol _) = TSymbol
 typeOf (DInt _) = TInt
 typeOf (DList _) = TList
+typeOf (DFunction _) = TFunction
 
 -- Convenience lifted functions
 
@@ -78,6 +88,15 @@ throwE e = lift $ Except.throwE e
 -- | Helper to construct and throw errors.
 iError :: ErrorType -> DExpr -> Interpreter a
 iError errorType expr = throwE $ IError errorType expr
+
+getEnv :: Interpreter [Env]
+getEnv = envStack <$> StateT.get
+
+setEnv :: [Env] -> Interpreter ()
+setEnv envStack = do
+  s <- StateT.get
+  let s' = s {envStack = envStack}
+  StateT.put s'
 
 -- Convenience expression assertions
 
@@ -114,3 +133,12 @@ expectFn2 :: DExpr -> Interpreter (DExpr, DExpr)
 expectFn2 (DList [p1, p2]) = pure (p1, p2)
 expectFn2 e@(DList l) = iError (ArgumentCountError 2 (length l)) e
 expectFn2 e = iError (TypeError TList (typeOf e)) e
+
+fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
+fn2IntIntInt f =
+  DFunction
+    ( \params -> do
+        ints <- sequence $ expectInt <$> params
+        (p1, p2) <- expect2 ints
+        pure $ DInt $ f p1 p2
+    )
