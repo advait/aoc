@@ -35,16 +35,27 @@ eval' = do
     i@(DList []) -> pure i
     -- Functions evaluate to themselves
     i@DFunction {} -> pure i
-    -- Special form function calls
+    -- Names dereference in the environment
+    i@(DSymbol _) -> lookup i
+    -- Named function calls
+    DList (DSymbol name : params) ->
+      special name params
+    -- Unnamed function calls
+    DList (p1 : params) -> general p1 params
+  where
+    -- special forms (like "if" and "fn") that require unique evaluation
+    special :: String -> [DExpr] -> Interpreter DExpr
     -- def! binds the name to the given value
-    e@(DList (DSymbol "def!" : params)) -> do
+    special "def" params = do
       (p1, p2) <- expect2 params
       name <- expectSymbol p1
       value <- eval p2
       bind name value
       pure value
-    -- let creates a new environment and binds provided names to values in the new environment
-    e@(DList (DSymbol "let" : params)) -> do
+
+    -- let creates a new environmen,t binds provided names to values in the new environment,
+    -- evaluates the final expression in the context of the environment, and discards the env.
+    special "let" params = do
       (bindings', finalExpr) <- expect2 params
       bindings <- expectList bindings'
       let expectPairs :: [DExpr] -> Interpreter [(String, DExpr)]
@@ -61,20 +72,24 @@ eval' = do
       finalValue <- eval finalExpr
       popEnv
       pure finalValue
+
     -- Function definition
-    e@(DList (DSymbol "fn" : outerParams)) -> do
+    special "fn" _ = do
+      e <- getCurExpr
       (paramNames, result) <- expectFnDef e
       makeClosure paramNames result
+
     -- do statement
-    e@(DList (DSymbol "do" : params)) -> do
+    special "do" params = do
       let loop [expr] = eval expr
           loop (head : tail) = do
             eval head
             loop tail
           loop [] = iError (ArgumentCountError 1 (length params))
       loop params
+
     -- if statement
-    e@(DList (DSymbol "if" : params)) -> do
+    special "if" params = do
       (p1, p2, p3) <- expect3 params
       v1 <- eval p1
       case v1 of
@@ -82,14 +97,19 @@ eval' = do
           | e == dNil -> eval p3
           | e == dFalse -> eval p3
           | otherwise -> eval p2
+
     -- typeof
-    e@(DList (DSymbol "typeof" : params)) -> do
+    special "typeof" params = do
       p1 <- expect1 params
       pure $ DSymbol $ show $ typeOf p1
+
     -- list
-    e@(DList (DSymbol "list" : params)) -> pure $ DList params
+    special "list" params = pure $ DList params
     -- General function calls
-    e@(DList (first : params)) -> do
+    special first params = general (DSymbol first) params
+
+    -- General function calls
+    general first params = do
       first' <- eval first
       case first' of
         DFunction fn -> do
@@ -97,8 +117,6 @@ eval' = do
           fn evalParams
         e ->
           iError (TypeError TFunction (typeOf e))
-    -- Names dereference in the environment
-    i@(DSymbol s) -> lookup i
 
 -- | A closure is created whenever a function is defined. It consists of three things:
 -- | 1. The current environment that the function body can refer to.
