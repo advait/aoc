@@ -33,7 +33,7 @@ type Env = IORef (Map String DExpr)
 data IError = IError ErrorType [DExpr]
 
 instance Show IError where
-  show (IError errorType exprStack) = show errorType <> "\nwhile evaluating expression:\n" <> showStack
+  show (IError errorType exprStack) = unlines [show errorType, "while evaluating expression:", showStack]
     where
       showStack = unlines ((<>) "  " . show <$> exprStack)
 
@@ -55,36 +55,53 @@ instance Show ErrorType where
 data DExpr
   = DSymbol String
   | DInt Int
+  | DString String
+  | DChar Char
   | DList [DExpr]
   | DFunction ([DExpr] -> Interpreter DExpr)
 
 instance Show DExpr where
   show (DSymbol symbol) = symbol
   show (DInt int) = show int
+  show (DString s) = show s
+  show (DChar c) = show c
   show (DList l) = "(" <> unwords (show <$> l) <> ")"
   show (DFunction _) = "#<function>"
 
 instance Eq DExpr where
   (DSymbol a) == (DSymbol b) = a == b
   (DInt a) == (DInt b) = a == b
+  (DString a) == (DString b) = a == b
+  (DChar a) == (DChar b) = a == b
   (DList a) == (DList b) = a == b
   _ == _ = False
 
-data DType = TSymbol | TInt | TList | TFunction
+data DType
+  = TSymbol
+  | TInt
+  | TString
+  | TChar
+  | TList
+  | TFunction
 
 instance Show DType where
   show TSymbol = "Symbol"
   show TInt = "Int"
+  show TString = "String"
+  show TChar = "Char"
   show TList = "List"
   show TFunction = "Function"
 
 typeOf :: DExpr -> DType
 typeOf (DSymbol _) = TSymbol
 typeOf (DInt _) = TInt
+typeOf (DString _) = TString
+typeOf (DChar _) = TChar
 typeOf (DList _) = TList
 typeOf (DFunction _) = TFunction
 
 -- Special values (you may regret keeping these as symbols...)
+
 dTrue :: DExpr
 dTrue = DSymbol "true"
 
@@ -180,9 +197,7 @@ expectFnDef params = do
 
 fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
 fn2IntIntInt f =
-  DFunction
-    ( \params -> do
-        ints <- sequence $ expectInt <$> params
-        (p1, p2) <- expect2 ints
-        pure $ DInt $ f p1 p2
-    )
+  DFunction $ \params -> do
+    ints <- sequence $ expectInt <$> params
+    (p1, p2) <- expect2 ints
+    pure $ DInt $ f p1 p2

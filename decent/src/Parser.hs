@@ -1,7 +1,7 @@
 module Parser where
 
 import Control.Applicative (optional, (<|>))
-import Data.Char (isAlpha, isAlphaNum)
+import Data.Char (isAlpha, isAlphaNum, isPrint)
 import Data.Functor.Identity (Identity)
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
@@ -29,6 +29,26 @@ integerP = do
   numbers <- many1 $ oneOf "0123456789"
   pure $ DInt $ read $ sign <> numbers
 
+stringP :: Parser DExpr
+stringP = do
+  _ <- char '"'
+  body <- many (escaped <|> unescaped)
+  _ <- char '"'
+  pure $ DString body
+  where
+    escaped :: Parser Char
+    escaped = do
+      _ <- char '\\'
+      Parsec.choice
+        [ '\n' <$ char 'n',
+          '\t' <$ char 't',
+          '"' <$ char '"',
+          '\\' <$ char '\\'
+        ]
+
+    unescaped :: Parser Char
+    unescaped = satisfy $ \c -> '\\' /= c && '"' /= c && isPrint c
+
 symbolP :: Parser DExpr
 symbolP =
   let puncP = oneOf "!$',_-./:?+<=>#%&*@[\\]{|}`^~"
@@ -48,7 +68,8 @@ listP = do
 exprP :: Parser DExpr
 exprP =
   choice
-    [ try integerP, -- "try" because "-" is an integer prefix as well as a symbol
+    [ stringP,
+      try integerP, -- "try" because "-" is an integer prefix as well as a symbol
       symbolP,
       listP
     ]

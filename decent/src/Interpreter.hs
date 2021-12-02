@@ -29,14 +29,16 @@ eval' :: Interpreter DExpr
 eval' = do
   expr <- getCurExpr
   case expr of
-    -- Integers evaluate to themselves
-    i@(DInt _) -> pure i
+    -- Primitive values evaluate to themselves
+    e@(DInt _) -> pure e
+    e@(DString _) -> pure e
+    e@(DChar _) -> pure e
     -- Empty lists evaluate to themselves
-    i@(DList []) -> pure i
+    e@(DList []) -> pure e
     -- Functions evaluate to themselves
-    i@DFunction {} -> pure i
+    e@DFunction {} -> pure e
     -- Names dereference in the environment
-    i@(DSymbol _) -> lookup i
+    e@(DSymbol _) -> lookup e
     -- Named function calls
     DList (DSymbol name : params) ->
       special name params
@@ -171,6 +173,12 @@ builtins =
           DFunction $ \params -> do
             p1 <- expect1 params >>= expectList
             pure $ DList $ tail p1
+        ),
+        ( "print",
+          DFunction $ \params -> do
+            p1 <- expect1 params
+            liftIO $ print p1
+            pure p1
         )
       ]
 
