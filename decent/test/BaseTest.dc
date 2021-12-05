@@ -1,0 +1,17 @@
+(load-file "../src/Base.dc")
+(load-file "./TestUtils.dc")
+
+; Basic equality assertions
+(assert-equal 1 1)
+(assert-equal () ())
+(assert-equal "hello" "hello")
+(assert-not-equal 1 2)
+
+; Boolean logic assertions
+(assert-true (&& true true))
+(assert-false (&& true false))
+(assert-true (|| true false))
+(assert-false (|| false false))
+
+; List functions
+(assert-equal (count (quote (1 2 3))) 3)

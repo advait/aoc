@@ -6,7 +6,7 @@ import Interpreter (eval, evalInterpreter)
 import Parser (exprP)
 import Test.Hspec (describe, it)
 import Test.QuickCheck ()
-import TestUtils (throwEither, throwParser)
+import TestUtils (throwEither, throwInterpreter, throwParser)
 import Types (Interpreter)
 
 spec = do
@@ -25,6 +25,8 @@ spec = do
       "((fn (a b) (+ a b)) 2 3)" `shouldEvalTo` "5"
       "(let (double (fn (a) (* a 2))) (double 1))" `shouldEvalTo` "2"
       "(let (double (fn (a) (* a 2))) (double (double 2))))" `shouldEvalTo` "8"
+    it "loads base" $ do
+      "(load-file \"./src/Base.dc\")" `shouldEvalTo` "()"
 
 shouldEvalTo :: String -> String -> IO ()
 shouldEvalTo input expected' = do
@@ -32,7 +34,3 @@ shouldEvalTo input expected' = do
   expected <- throwParser exprP expected'
   res <- throwInterpreter $ eval expr
   unless (res == expected) $ fail (show res <> " ≠ " <> expected')
-
--- | Runs the interpreter, throwing if we get an error.
-throwInterpreter :: Interpreter a -> IO a
-throwInterpreter int = evalInterpreter int >>= throwEither

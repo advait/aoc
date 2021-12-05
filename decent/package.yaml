@@ -1,10 +1,10 @@
 name: decent
 version: 0.1.0.0
-github: "githubuser/decent"
-license: BSD3
-author: "Author name here"
-maintainer: "example@example.com"
-copyright: "2021 Author name here"
+github: "advait/aoc/decent"
+license: MIT
+author: "Advait Shinde"
+maintainer: "advait.shinde@gmail.com"
+copyright: "2021 Advait Shinde"
 
 extra-source-files:
   - README.md
@@ -23,6 +23,7 @@ dependencies:
   - base >= 4.7 && < 5
   - containers
   - extra
+  - filepath
   - haskeline
   - parsec
   - text

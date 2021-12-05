@@ -27,7 +27,7 @@ lookup expr = do
   name <- expectSymbol expr
   env <- getEnv
   let lookup' :: [Env] -> Interpreter DExpr
-      lookup' [] = iError ReferenceError
+      lookup' [] = iError $ ReferenceError name
       lookup' (head : tail) = do
         env <- readIORef head
         case Map.lookup name env of

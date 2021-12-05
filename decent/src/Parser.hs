@@ -60,8 +60,8 @@ symbolP =
 listP :: Parser DExpr
 listP = do
   _ <- lexeme $ char '('
-  items <- lexeme $ sepBy exprP whitespace
-  _ <- char ')'
+  items <- many $ lexeme exprP
+  _ <- lexeme $ char ')'
   pure $ DList items
 
 -- | Main expression parser
@@ -99,7 +99,7 @@ fileP = do
   pure exprs
   where
     exprP' = lexeme (Just <$> exprP)
-    commentP' = Nothing <$ commentP
+    commentP' = lexeme $ Nothing <$ commentP
 
 parse :: String -> Either ParseError DExpr
 parse input = Parsec.parse exprP "" (Text.pack input)

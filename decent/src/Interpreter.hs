@@ -11,8 +11,12 @@ import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Data.Text as Text
 import Env (bind, bindAll, lookup, popEnv, pushEnv)
 import GHC.Base (divInt)
+import Parser (fileP)
+import System.FilePath as FilePath
+import qualified Text.Parsec as Parsec
 import Types
 import Prelude hiding (error, lookup)
 
@@ -48,7 +52,7 @@ eval' = do
     -- special forms (like "if" and "fn") that require unique evaluation
     special :: String -> [DExpr] -> Interpreter DExpr
     -- def! binds the name to the given value
-    special "def" params = do
+    special "def!" params = do
       (p1, p2) <- expect2 params
       name <- expectSymbol p1
       value <- eval p2
@@ -174,6 +178,16 @@ builtins =
             p1 <- expect1 params >>= expectList
             pure $ DList $ tail p1
         ),
+        ( "show",
+          DFunction $ \params -> do
+            p1 <- expect1 params
+            pure $ DString $ show p1
+        ),
+        ( "error",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectString
+            iError $ RuntimeError p1
+        ),
         ( "print",
           DFunction $ \params -> do
             p1 <- expect1 params
@@ -185,6 +199,17 @@ builtins =
             p1 <- expect1 params >>= expectString
             content <- liftIO $ readFile p1
             pure $ DString content
+        ),
+        -- Runs the decent expressions in the given file
+        ( "load-file",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectString
+            runFile p1
+        ),
+        ( "concat",
+          DFunction $ \params -> do
+            strings <- sequence (expectString <$> params)
+            pure $ DString $ foldl (<>) "" strings
         )
       ]
 
@@ -192,7 +217,25 @@ builtins =
 initState :: IO IState
 initState = do
   builtins' <- builtins
-  pure $ IState {envStack = [builtins'], exprStack = []}
+  pure $ IState {envStack = [builtins'], exprStack = [], importDir = ""}
+
+runFile :: String -> Interpreter DExpr
+runFile fileName = do
+  prevDir <- getImportDir
+  let tryingFile = prevDir </> fileName
+  content <- liftIO $ readFile tryingFile
+  let newDir = FilePath.takeDirectory fileName
+  setImportDir newDir
+  case Parsec.parse fileP fileName (Text.pack content) of
+    Left err -> do
+      -- TODO: Issue with finaly
+      setImportDir prevDir
+      iError $ SyntaxError $ show err
+    Right exprs -> do
+      sequence_ (eval <$> exprs)
+      -- TODO: Issue with finaly
+      setImportDir prevDir
+      pure dNil
 
 -- | Runs the interpreter with the provided state, yielding the result and the next state.
 execInterpreter :: Interpreter DExpr -> IState -> IO (Either IError (DExpr, IState))

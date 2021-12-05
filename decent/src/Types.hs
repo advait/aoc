@@ -12,7 +12,9 @@ import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Text.Parsec (ParsecT)
+import qualified Text.Parsec as Parsec
 
 -- | The core Decent Interpreter which maintains a state IState, can error with IError, and
 -- | evaluates to a value v.
@@ -23,7 +25,9 @@ data IState = IState
   { -- Bindings are stored in nested environments.
     envStack :: [Env],
     -- Expressions are evaluated recursively, stored on this stack for better error tracing.
-    exprStack :: [DExpr]
+    exprStack :: [DExpr],
+    -- The directory relative to which we are importing other files.
+    importDir :: FilePath
   }
 
 -- | An environment is a mapping from names to expressions.
@@ -39,17 +43,19 @@ instance Show IError where
 
 data ErrorType
   = ArgumentCountError Int Int
-  | ReferenceError
+  | ReferenceError String
   | TypeError DType DType
   | EmptyStackError
-  | SyntaxError String String
+  | SyntaxError String
+  | RuntimeError String
 
 instance Show ErrorType where
   show (ArgumentCountError expected actual) = "ArgumentCountError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
-  show ReferenceError = "ReferenceError"
+  show (ReferenceError name) = "ReferenceError (" <> show name <> ")"
   show (TypeError expected actual) = "TypeError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
   show EmptyStackError = "EmptyStackError (no stack frames for binding new value)"
-  show (SyntaxError expected actual) = "SyntaxError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
+  show (SyntaxError info) = "SyntaxError (" <> info <> ")"
+  show (RuntimeError info) = "RuntimeError (" <> info <> ")"
 
 -- | An expression that can be evaluated.
 data DExpr
@@ -151,16 +157,19 @@ pushExpr expr = do
   StateT.put s'
 
 popExpr :: Interpreter ()
-popExpr = do
-  s <- StateT.get
-  let s' = s {exprStack = tail $ exprStack s}
-  StateT.put s'
+popExpr = StateT.modify $ \s -> s {exprStack = tail $ exprStack s}
 
 getCallStack :: Interpreter [DExpr]
 getCallStack = exprStack <$> StateT.get
 
 getCurExpr :: Interpreter DExpr
 getCurExpr = head <$> getCallStack
+
+getImportDir :: Interpreter FilePath
+getImportDir = importDir <$> StateT.get
+
+setImportDir :: FilePath -> Interpreter ()
+setImportDir dir = StateT.modify $ \s -> s {importDir = dir}
 
 -- Convenience expression assertions
 

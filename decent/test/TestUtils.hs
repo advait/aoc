@@ -2,8 +2,11 @@ module TestUtils where
 
 import Control.Monad (unless)
 import qualified Data.Text as Text
-import Parser (Parser)
+import Interpreter (eval, evalInterpreter)
+import Parser (Parser, fileP)
 import Text.Parsec (runParser)
+import qualified Text.Parsec as Parsec
+import Types (Interpreter)
 
 -- | Converts Either into IO, throwing if we get an error.
 throwEither :: Show err => Either err b -> IO b
@@ -14,3 +17,7 @@ throwEither (Right b) = pure b
 throwParser :: Parser a -> String -> IO a
 throwParser parser input =
   throwEither $ runParser parser () "" (Text.pack input)
+
+-- | Runs the interpreter, throwing if we get an error.
+throwInterpreter :: Interpreter a -> IO a
+throwInterpreter int = evalInterpreter int >>= throwEither

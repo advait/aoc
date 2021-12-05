@@ -1,9 +1,38 @@
 ;; The Decent Base library
+; ------------------------------------------------------------------------------
+
+; Type-related functions
+; ------------------------------------------------------------------------------
 
 ;; Returns whether the given parameter is a list.
 (def! list? (fn (l)
   (= (typeof l) (quote List))
 ))
+
+; Boolean functions
+; ------------------------------------------------------------------------------
+
+(def! not (fn (a)
+  (if a false true)
+))
+
+(def! != (fn (a b)
+  (not (= a b))
+))
+
+(def! && (fn (a b)
+  (if (not a)
+    false
+    b
+  )
+))
+
+(def! || (fn (a b)
+  (not (&& (not a) (not b)))
+))
+
+; List functions
+; ------------------------------------------------------------------------------
 
 ;; Returns whether the given list is empty.
 (def! empty? (fn (l)

@@ -1,0 +1,23 @@
+;; Testing utilities
+
+(def! assert-equal (fn (a b)
+  (if (= a b)
+    nil
+    (error (concat (show a) " ≠ " (show b)))
+  )
+))
+
+(def! assert-not-equal (fn (a b)
+  (if (!= a b)
+    nil
+    (error (concat (show a) " = " (show b)))
+  )
+))
+
+(def! assert-true (fn (a)
+  (assert-equal a true)
+))
+
+(def! assert-false (fn (a)
+  (assert-equal a false)
+))

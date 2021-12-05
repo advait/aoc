@@ -7,12 +7,12 @@ cabal-version: 1.12
 name:           decent
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/decent#readme>
-homepage:       https://github.com/githubuser/decent#readme
-bug-reports:    https://github.com/githubuser/decent/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2021 Author name here
-license:        BSD3
+homepage:       https://github.com/advait/aoc#readme
+bug-reports:    https://github.com/advait/aoc/issues
+author:         Advait Shinde
+maintainer:     advait.shinde@gmail.com
+copyright:      2021 Advait Shinde
+license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
@@ -21,7 +21,8 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/decent
+  location: https://github.com/advait/aoc
+  subdir: decent
 
 library
   exposed-modules:
@@ -37,6 +38,7 @@ library
       base >=4.7 && <5
     , containers
     , extra
+    , filepath
     , haskeline
     , parsec
     , text
@@ -55,6 +57,7 @@ executable decent-exe
     , containers
     , decent
     , extra
+    , filepath
     , haskeline
     , parsec
     , text
@@ -66,6 +69,7 @@ test-suite decent-test
   main-is: Spec.hs
   other-modules:
       InterpreterSpec
+      NativeSpec
       ParserSpec
       TestUtils
       Paths_decent
@@ -78,6 +82,7 @@ test-suite decent-test
     , containers
     , decent
     , extra
+    , filepath
     , haskeline
     , hspec
     , hspec-discover
