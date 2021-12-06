@@ -1,3 +1,5 @@
+{-# LANGUAGE RecursiveDo #-}
+
 module Interpreter where
 
 import Control.Monad (unless)
@@ -5,14 +7,14 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT (ExceptT), runExcept, runExceptT)
 import qualified Control.Monad.Trans.Except as Except
-import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
-import qualified Control.Monad.Trans.State as State
+import Control.Monad.Trans.State.Lazy (StateT (runStateT), evalStateT)
+import qualified Control.Monad.Trans.State.Lazy as State
 import Data.IORef (IORef)
 import qualified Data.IORef as IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Env (bind, bindAll, lookup, popEnv, pushEnv)
+import Env (bind, bindAll, bindLazy)
 import GHC.Base (divInt)
 import Parser (fileP)
 import System.FilePath as FilePath
@@ -23,12 +25,13 @@ import Prelude hiding (error, lookup)
 -- | Evaluates the given expression, yielding a value.
 eval :: DExpr -> Interpreter DExpr
 eval expr = do
+  -- TODO: Finally
   pushExpr expr
   value <- eval'
   popExpr
   pure value
 
--- | Internal eval', using the getCurExpr
+-- | Internal eval', using the getCurExpr.
 eval' :: Interpreter DExpr
 eval' = do
   expr <- getCurExpr
@@ -52,29 +55,39 @@ eval' = do
     -- special forms (like "if" and "fn") that require unique evaluation
     special :: String -> [DExpr] -> Interpreter DExpr
     -- def! binds the name to the given value
-    special "def!" params = do
+    special "def!" params = mdo
       (p1, p2) <- expect2 params
       name <- expectSymbol p1
-      value <- eval p2
-      bind name value
+      -- Note that the bound name is available in the environment when we evaluate the value
+      boundEnv <- do
+        bind name value
+        getEnv
+      value <- do
+        putEnv boundEnv
+        eval p2
       pure value
 
-    -- let creates a new environmen,t binds provided names to values in the new environment,
+    -- let creates a new environment binds provided names to values in the new environment,
     -- evaluates the final expression in the context of the environment, and discards the env.
-    special "let" params = do
+    -- special :: String -> [DExpr] -> Interpreter DExpr
+    special "let" params = mdo
       (bindings', finalExpr) <- expect2 params
-      bindings <- expectList bindings'
-      let expectPairs :: [DExpr] -> Interpreter [(String, DExpr)]
-          expectPairs (p1 : p2 : tail) = do
-            name <- expectSymbol p1
-            value <- eval p2
-            (:) (name, value) <$> expectPairs tail
-          expectPairs [] = pure []
-          expectPairs _ = iError (ArgumentCountError 2 (length bindings))
-      bindingPairs <- expectPairs bindings
+      bindings <- expectList bindings' >>= expectPairs
+      -- A lazy binding allows us to create a binding while deferring the evaluation of the value
+      -- until the binding is needed. This allows us to create recursive values.
+      let createLazyBinding :: (String, DExpr) -> Interpreter ()
+          createLazyBinding (name, value) =
+            let lazyBinding = do
+                  -- When the lazy binding is eventually evaluated, we want to reinstantiate
+                  -- the "boundEnv" below.
+                  putEnv boundEnv
+                  eval value
+             in bindLazy name lazyBinding
       pushEnv
-      let (names, values) = unzip bindingPairs
-      bindAll names values
+      createLazyBinding `mapM_` bindings
+      boundEnv <- getEnv
+      -- We lookup all the bindings from left to right, effectively un-lazying them.
+      lookup `mapM_` (DSymbol . fst <$> bindings)
       finalValue <- eval finalExpr
       popEnv
       pure finalValue
@@ -104,9 +117,7 @@ eval' = do
           | otherwise -> eval p2
 
     -- quote
-    special "quote" params = do
-      expect1 params
-
+    special "quote" params = expect1 params
     -- General function calls
     special first params = general (DSymbol first) params
 
@@ -115,10 +126,33 @@ eval' = do
       first' <- eval first
       case first' of
         DFunction fn -> do
-          evalParams <- sequence (eval <$> params)
+          evalParams <- eval `mapM` params
           fn evalParams
         e ->
-          iError (TypeError TFunction (typeOf e))
+          iError $ TypeError TFunction $ typeOf e
+
+-- | Recursively looks up a value in the environment stack, potentially evaluating lazy bindings.
+lookup :: DExpr -> Interpreter DExpr
+lookup expr = do
+  name <- expectSymbol expr
+  env <- getEnv
+  let lookup' :: [Env] -> Interpreter DExpr
+      lookup' [] = iError $ ReferenceError name
+      lookup' (head : tail) =
+        case Map.lookup name head of
+          Nothing -> lookup' tail
+          Just (StrictBinding expr) -> pure expr
+          Just (LazyBinding ref) -> do
+            ref' <- readIORef ref
+            case ref' of
+              -- Lazy expression has already been evaluated; return it.
+              Evaluated expr -> pure expr
+              -- Deferred expression has yet to be evaluated. Evaluate it and rebind accordingly.
+              Deferred deferred -> do
+                expr <- deferred
+                writeIORef ref $ Evaluated expr
+                pure expr
+  lookup' env
 
 -- | A closure is created whenever a function is defined. It consists of three things:
 -- | 1. The current environment that the function body can refer to.
@@ -132,19 +166,19 @@ makeClosure names value = do
       ( \params -> do
           -- Temporarily save our existing environment so we can replace it after the function call
           tempEnv <- getEnv
-          setEnv closedEnv
+          putEnv closedEnv
           pushEnv
           bindAll names params
           res <- eval value
-          setEnv tempEnv
+          putEnv tempEnv
           pure res
       )
 
 -- | Bindings for builtin functions and values.
-builtins :: IO Env
+builtins :: Env
 builtins =
-  IORef.newIORef $
-    Map.fromList
+  StrictBinding
+    <$> Map.fromList
       [ ("nil", dNil),
         ("true", dTrue),
         ("false", dFalse),
@@ -157,6 +191,16 @@ builtins =
             (p1, p2) <- expect2 params
             pure $ toDBool $ p1 == p2
         ),
+        ( "<",
+          DFunction $ \params -> do
+            (p1, p2) <- expectInt `mapM` params >>= expect2
+            pure $ toDBool $ p1 < p2
+        ),
+        ( ">",
+          DFunction $ \params -> do
+            (p1, p2) <- expectInt `mapM` params >>= expect2
+            pure $ toDBool $ p1 > p2
+        ),
         ( "typeof",
           DFunction $ \params -> do
             p1 <- expect1 params
@@ -165,18 +209,39 @@ builtins =
         ("list", DFunction $ \params -> pure $ DList params),
         ( "count",
           DFunction $ \params -> do
-            p1 <- expect1 params >>= expectList
-            pure $ DInt $ length p1
+            p1 <- expect1 params
+            case p1 of
+              DList l -> pure $ DInt $ length l
+              DString s -> pure $ DInt $ length s
+              e -> iError $ TypeError TList $ typeOf e
         ),
         ( "head",
           DFunction $ \params -> do
-            p1 <- expect1 params >>= expectList
-            pure $ head p1
+            p1 <- expect1 params
+            case p1 of
+              DList [] -> iError EmptyListError
+              DList l -> pure $ head l
+              DString "" -> iError EmptyListError
+              DString s -> pure $ DChar $ head s
+              e -> iError $ TypeError TList $ typeOf e
         ),
         ( "tail",
           DFunction $ \params -> do
-            p1 <- expect1 params >>= expectList
-            pure $ DList $ tail p1
+            p1 <- expect1 params
+            case p1 of
+              DList [] -> iError EmptyListError
+              DList l -> pure $ DList $ tail l
+              DString "" -> iError EmptyListError
+              DString s -> pure $ DString $ tail s
+              e -> iError $ TypeError TList $ typeOf e
+        ),
+        ( "cons",
+          DFunction $ \params -> do
+            (h, t) <- expect2 params
+            case t of
+              DList l -> pure $ DList $ h : l
+              DString s -> (\c -> DString $ c : s) <$> expectChar h
+              e -> iError $ TypeError TList $ typeOf e
         ),
         ( "show",
           DFunction $ \params -> do
@@ -197,7 +262,8 @@ builtins =
         ( "read-file",
           DFunction $ \params -> do
             p1 <- expect1 params >>= expectString
-            content <- liftIO $ readFile p1
+            fileName <- relativePath p1
+            content <- liftIO $ readFile fileName
             pure $ DString content
         ),
         -- Runs the decent expressions in the given file
@@ -208,23 +274,27 @@ builtins =
         ),
         ( "concat",
           DFunction $ \params -> do
-            strings <- sequence (expectString <$> params)
+            strings <- expectString `mapM` params
             pure $ DString $ foldl (<>) "" strings
         )
       ]
 
 -- | The initial state with builtins bound.
 initState :: IO IState
-initState = do
-  builtins' <- builtins
-  pure $ IState {envStack = [builtins'], exprStack = [], importDir = ""}
+initState =
+  pure $ IState {envStack = [builtins], exprStack = [], importDir = ""}
+
+-- | Interpreters the given path relative to the import dir.
+-- TODO: The file name of the current file should be stored in a variable - not in state.
+relativePath :: FilePath -> Interpreter FilePath
+relativePath p = (</> p) <$> getImportDir
 
 runFile :: String -> Interpreter DExpr
 runFile fileName = do
-  prevDir <- getImportDir
-  let tryingFile = prevDir </> fileName
+  tryingFile <- relativePath fileName
   content <- liftIO $ readFile tryingFile
   let newDir = FilePath.takeDirectory fileName
+  prevDir <- getImportDir
   setImportDir newDir
   case Parsec.parse fileP fileName (Text.pack content) of
     Left err -> do
@@ -232,17 +302,18 @@ runFile fileName = do
       setImportDir prevDir
       iError $ SyntaxError $ show err
     Right exprs -> do
-      sequence_ (eval <$> exprs)
+      eval `mapM` exprs
       -- TODO: Issue with finaly
       setImportDir prevDir
       pure dNil
 
 -- | Runs the interpreter with the provided state, yielding the result and the next state.
-execInterpreter :: Interpreter DExpr -> IState -> IO (Either IError (DExpr, IState))
-execInterpreter interp state = runExceptT $ runStateT interp state
+execInterpreter :: Interpreter a -> IState -> IO (Either IError a, IState)
+-- execInterpreter interp state = runExceptT $ runStateT interp state
+execInterpreter interp = runStateT (runExceptT interp)
 
 -- | Runs the interpreter with the initial state, discarding the final state.
 evalInterpreter :: Interpreter a -> IO (Either IError a)
 evalInterpreter interpreter = do
   initState' <- initState
-  runExceptT $ evalStateT interpreter initState'
+  fst <$> execInterpreter interpreter initState'

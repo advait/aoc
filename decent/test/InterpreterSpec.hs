@@ -18,6 +18,7 @@ spec = do
       "(* (+ 1 3) (- 3 7))" `shouldEvalTo` "-16"
     it "handles scopes with let" $ do
       "(let (a 1) a)" `shouldEvalTo` "1"
+      "(let (a 1 b 2) b)" `shouldEvalTo` "2"
       "(let (a 1 b 2) (+ a b))" `shouldEvalTo` "3"
       "(let (a 1) (+ (let (a 2) a) a))" `shouldEvalTo` "3"
     it "handles functions" $ do

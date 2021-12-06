@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 module Types where
 
 import Control.Monad (unless)
@@ -7,6 +9,7 @@ import Control.Monad.Trans.Except (ExceptT)
 import qualified Control.Monad.Trans.Except as Except
 import Control.Monad.Trans.State (StateT)
 import qualified Control.Monad.Trans.State as StateT
+import Data.Either (Either (Left, Right))
 import Data.Functor.Identity (Identity)
 import Data.IORef (IORef)
 import qualified Data.IORef as IORef
@@ -18,7 +21,8 @@ import qualified Text.Parsec as Parsec
 
 -- | The core Decent Interpreter which maintains a state IState, can error with IError, and
 -- | evaluates to a value v.
-type Interpreter v = StateT IState (ExceptT IError IO) v
+-- type Interpreter v = StateT IState (ExceptT IError IO) v
+type Interpreter v = ExceptT IError (StateT IState IO) v
 
 -- | The interpreter state.
 data IState = IState
@@ -29,17 +33,28 @@ data IState = IState
     -- The directory relative to which we are importing other files.
     importDir :: FilePath
   }
+  deriving (Show)
 
 -- | An environment is a mapping from names to expressions.
-type Env = IORef (Map String DExpr)
+type Env = Map String Binding
+
+data Binding
+  = StrictBinding DExpr
+  | LazyBinding (IORef DeferredExpr)
+
+instance Show Binding where
+  show (StrictBinding s) = show s
+  show (LazyBinding _) = "[lazy]"
+
+data DeferredExpr = Evaluated DExpr | Deferred (Interpreter DExpr)
 
 -- | An interpreter error.
-data IError = IError ErrorType [DExpr]
+data IError = IError ErrorType IState
 
 instance Show IError where
-  show (IError errorType exprStack) = unlines [show errorType, "while evaluating expression:", showStack]
+  show (IError errorType state) = unlines [show errorType, "while evaluating expression:", showStack]
     where
-      showStack = unlines ((<>) "  " . show <$> exprStack)
+      showStack = unlines ((<>) "  " . show <$> exprStack state)
 
 data ErrorType
   = ArgumentCountError Int Int
@@ -48,6 +63,7 @@ data ErrorType
   | EmptyStackError
   | SyntaxError String
   | RuntimeError String
+  | EmptyListError
 
 instance Show ErrorType where
   show (ArgumentCountError expected actual) = "ArgumentCountError (expected: " <> show expected <> ", actual: " <> show actual <> ")"
@@ -56,6 +72,7 @@ instance Show ErrorType where
   show EmptyStackError = "EmptyStackError (no stack frames for binding new value)"
   show (SyntaxError info) = "SyntaxError (" <> info <> ")"
   show (RuntimeError info) = "RuntimeError (" <> info <> ")"
+  show EmptyListError = "Empty List"
 
 -- | An expression that can be evaluated.
 data DExpr
@@ -133,43 +150,65 @@ writeIORef :: IORef a -> a -> Interpreter ()
 writeIORef ref = liftIO . IORef.writeIORef ref
 
 throwE :: IError -> Interpreter a
-throwE e = lift $ Except.throwE e
+throwE = Except.throwE
 
 -- | Helper to construct and throw errors.
 iError :: ErrorType -> Interpreter a
 iError errorType = do
-  callStack <- getCallStack
-  throwE $ IError errorType callStack
+  state <- getState
+  throwE $ IError errorType state
+
+-- catchError :: Interpreter a -> (IError -> Interpreter a) -> Interpreter a
+-- catchError = StateT.liftCatch Except.catchE
+
+getState :: Interpreter IState
+getState = lift StateT.get
+
+putState :: IState -> Interpreter ()
+putState s = lift $ StateT.put s
+
+modifyState :: (IState -> IState) -> Interpreter ()
+modifyState f = lift $ StateT.modify f
 
 getEnv :: Interpreter [Env]
-getEnv = envStack <$> StateT.get
+getEnv = envStack <$> getState
 
-setEnv :: [Env] -> Interpreter ()
-setEnv envStack = do
-  s <- StateT.get
-  let s' = s {envStack = envStack}
-  StateT.put s'
+putEnv :: [Env] -> Interpreter ()
+putEnv envStack = modifyState $ \s -> s {envStack = envStack}
+
+-- | Creates a new environment (for function calls).
+pushEnv :: Interpreter ()
+pushEnv = modifyState $ \s -> s {envStack = mempty : envStack s}
+
+-- | Deletes the current environment.
+popEnv :: Interpreter ()
+popEnv = do
+  env <- getEnv
+  case env of
+    [] -> iError EmptyStackError
+    head : tail -> putEnv tail
 
 pushExpr :: DExpr -> Interpreter ()
-pushExpr expr = do
-  s <- StateT.get
-  let s' = s {exprStack = expr : exprStack s}
-  StateT.put s'
+pushExpr expr = modifyState $ \s -> s {exprStack = expr : exprStack s}
 
 popExpr :: Interpreter ()
-popExpr = StateT.modify $ \s -> s {exprStack = tail $ exprStack s}
+popExpr = do
+  state <- getState
+  case exprStack state of
+    [] -> iError EmptyStackError
+    stack -> putState $ state {exprStack = tail stack}
 
 getCallStack :: Interpreter [DExpr]
-getCallStack = exprStack <$> StateT.get
+getCallStack = exprStack <$> getState
 
 getCurExpr :: Interpreter DExpr
 getCurExpr = head <$> getCallStack
 
 getImportDir :: Interpreter FilePath
-getImportDir = importDir <$> StateT.get
+getImportDir = importDir <$> getState
 
 setImportDir :: FilePath -> Interpreter ()
-setImportDir dir = StateT.modify $ \s -> s {importDir = dir}
+setImportDir dir = modifyState $ \s -> s {importDir = dir}
 
 -- Convenience expression assertions
 
@@ -180,6 +219,10 @@ expectSymbol e = iError $ TypeError TSymbol $ typeOf e
 expectInt :: DExpr -> Interpreter Int
 expectInt (DInt i) = pure i
 expectInt e = iError $ TypeError TInt $ typeOf e
+
+expectChar :: DExpr -> Interpreter Char
+expectChar (DChar c) = pure c
+expectChar e = iError $ TypeError TChar $ typeOf e
 
 expectString :: DExpr -> Interpreter String
 expectString (DString s) = pure s
@@ -201,16 +244,24 @@ expectList :: DExpr -> Interpreter [DExpr]
 expectList (DList l) = pure l
 expectList e = iError $ TypeError TList $ typeOf e
 
+-- | Paired name/values for let expressions.
+expectPairs :: [DExpr] -> Interpreter [(String, DExpr)]
+expectPairs (p1 : p2 : tail) = do
+  name <- expectSymbol p1
+  (:) (name, p2) <$> expectPairs tail
+expectPairs [] = pure []
+expectPairs e = iError (ArgumentCountError 2 (length e))
+
 expectFnDef :: [DExpr] -> Interpreter ([String], DExpr)
 expectFnDef params = do
   (p1, p2) <- expect2 params
   params' <- expectList p1
-  params <- sequence (expectSymbol <$> params')
+  params <- expectSymbol `mapM` params'
   pure (params, p2)
 
 fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
 fn2IntIntInt f =
   DFunction $ \params -> do
-    ints <- sequence $ expectInt <$> params
+    ints <- expectInt `mapM` params
     (p1, p2) <- expect2 ints
     pure $ DInt $ f p1 p2

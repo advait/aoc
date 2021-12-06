@@ -20,15 +20,26 @@
   (not (= a b))
 ))
 
-(def! && (fn (a b)
+(def! and (fn (a b)
   (if (not a)
     false
     b
   )
 ))
 
-(def! || (fn (a b)
-  (not (&& (not a) (not b)))
+(def! or (fn (a b)
+  (not (and (not a) (not b)))
+))
+
+; Numeric functions
+; ------------------------------------------------------------------------------
+
+(def! <= (fn (a b)
+  (or (< a b) (= a b))
+))
+
+(def! >= (fn (a b)
+  (or (> a b) (= a b))
 ))
 
 ; List functions
@@ -37,4 +48,70 @@
 ;; Returns whether the given list is empty.
 (def! empty? (fn (l)
   (= 0 (count l))
+))
+
+;; Applies the map function to every item in the list.
+(def! map (fn (f l)
+  (if (= 0 (count l))
+    ()
+    (cons (f (head l)) (map f (tail l)))
+  )
+))
+
+;; Filters items in the list that match the given predicate.
+(def! filter (fn (pred l)
+  (if (= 0 (count 1))
+    ()
+    (let (h (head l))
+      (if (pred h)
+        (cons h (filter pred (tail l)))
+        (filter pred (tail l))
+      )
+    )
+  )
+))
+
+; String functions
+; ------------------------------------------------------------------------------
+
+; TODO: Support char literals
+(def! newline (head "\n"))
+
+;; Drops n characters from the given list or string.
+(def! drop (fn (s n)
+  (if (or (<= n 0) (empty? s))
+    s
+    (drop (tail s) (- n 1))
+  )
+))
+
+;; Takes n characters from the front of the given list or string.
+(def! take (fn (s n)
+  (if (or (<= n 0) (empty? s))
+    ""
+    (cons
+      (head s)
+      (take (tail s) (- n 1)))
+  )
+))
+
+;; Returns whether the given string starts with the given prefix.
+(def! starts-with (fn (haystack needle)
+  (= needle (take haystack (count needle)))
+))
+
+;; Splits the given string by the separator.
+(def! split (fn (s sep)
+  (let
+    (rec (fn (acc s')
+      (if (= "" s')
+        (cons acc ())
+        (if (starts-with s' sep)
+          (cons acc (split (drop s' (count sep)) sep))
+          (rec (concat acc (take s' 1)) (drop s' 1))
+        )
+      )
+    ))
+    (rec "" s)
+  )
 ))

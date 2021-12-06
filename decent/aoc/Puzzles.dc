@@ -1,0 +1,5 @@
+(def! read-puzzle (fn (n)
+  (let (
+    file-name (concat "./aoc/puzzles/" (show n) ".txt")
+  ) (read-file file-name))
+))

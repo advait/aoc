@@ -2,8 +2,9 @@ module TestUtils where
 
 import Control.Monad (unless)
 import qualified Data.Text as Text
-import Interpreter (eval, evalInterpreter)
+import Interpreter (eval, evalInterpreter, execInterpreter, initState)
 import Parser (Parser, fileP)
+import System.IO (hPrint, hPutStrLn, stderr)
 import Text.Parsec (runParser)
 import qualified Text.Parsec as Parsec
 import Types (Interpreter)
@@ -20,4 +21,10 @@ throwParser parser input =
 
 -- | Runs the interpreter, throwing if we get an error.
 throwInterpreter :: Interpreter a -> IO a
-throwInterpreter int = evalInterpreter int >>= throwEither
+throwInterpreter int = do
+  initState' <- initState
+  res <- execInterpreter int initState'
+  case res of
+    (Left err, state) -> do
+      fail $ show err <> "\nState:\n" <> show state
+    (Right value, _) -> pure value

@@ -1,6 +1,8 @@
 (load-file "../src/Base.dc")
 (load-file "./TestUtils.dc")
 
+;; Tests for the Base standard library
+
 ; Basic equality assertions
 (assert-equal 1 1)
 (assert-equal () ())
@@ -8,10 +10,56 @@
 (assert-not-equal 1 2)
 
 ; Boolean logic assertions
-(assert-true (&& true true))
-(assert-false (&& true false))
-(assert-true (|| true false))
-(assert-false (|| false false))
+(assert-true (and true true))
+(assert-false (and true false))
+(assert-true (or true false))
+(assert-false (or false false))
+
+; Function definitions
+(assert-true ((fn (n) n) true))
+(let
+  (id (fn (a) a))
+  (do
+    (assert-true (id true))
+    (assert-equal (id 5) 5)
+  )
+)
 
 ; List functions
+(assert-equal (count nil) 0)
 (assert-equal (count (quote (1 2 3))) 3)
+(let (
+    +1 (fn (n) (+ n 1))
+    l  (quote (1 2 3))
+  )
+  (assert-equal (map +1 l) (quote (2 3 4)))
+)
+(assert-equal (map error ()) ())
+(assert-equal (cons "hi" ()) (quote ("hi")))
+(assert-equal (cons "hi" (quote (1))) (quote ("hi" 1)))
+
+; Computation tests
+(let
+  (fib (fn (n)
+    (if (<= n 2)
+      1
+      (+ (fib (- n 2)) (fib (- n 1)))
+    )
+  ))
+  (do
+    (assert-equal (fib 5) 5)
+    (assert-equal (fib 7) 13)
+    (assert-equal (fib -1) 1)
+  )
+)
+
+; String functions
+(assert-equal (drop "hello" 3) "lo")
+(assert-equal (drop "hi" 5) "")
+(assert-equal (take "hello" 3) "hel")
+(assert-equal (take "hi" 5) "hi")
+(assert-true (starts-with "hello" ""))
+(assert-true (starts-with "hello" "he"))
+(assert-false (starts-with "hello" "false"))
+(assert-equal (split "1\n2" "\n") (quote ("1" "2")))
+(assert-equal (split "" "\n") (quote ("")))

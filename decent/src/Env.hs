@@ -1,55 +1,34 @@
 module Env where
 
 import Control.Monad (unless)
+import Control.Monad.IO.Class (liftIO)
 import qualified Control.Monad.Trans.State as State
 import qualified Data.IORef as IORef
 import qualified Data.Map as Map
 import GHC.Base (divInt)
 import Types
-
--- | Creates a new environment (for function calls).
-pushEnv :: Interpreter ()
-pushEnv = do
-  newEnv <- newIORef mempty
-  State.modify (\s -> s {envStack = newEnv : envStack s})
-
--- | Deletes the current environment.
-popEnv :: Interpreter ()
-popEnv = do
-  env <- getEnv
-  case env of
-    [] -> iError EmptyStackError
-    head : tail -> setEnv tail
-
--- | Recursively looks up a value in the environment stack.
-lookup :: DExpr -> Interpreter DExpr
-lookup expr = do
-  name <- expectSymbol expr
-  env <- getEnv
-  let lookup' :: [Env] -> Interpreter DExpr
-      lookup' [] = iError $ ReferenceError name
-      lookup' (head : tail) = do
-        env <- readIORef head
-        case Map.lookup name env of
-          Nothing -> lookup' tail
-          Just expr -> pure expr
-  lookup' env
+import Prelude hiding (lookup)
 
 -- | Sets the key to the given value in the current environment.
 bind :: String -> DExpr -> Interpreter ()
 bind key value = do
-  let putBinding :: [Env] -> Interpreter ()
-      putBinding [] = iError EmptyStackError
-      putBinding (head : tail) = do
-        env <- readIORef head
-        let env' = Map.insert key value env
-        writeIORef head env'
-  env <- getEnv
-  putBinding env
+  s <- getState
+  case envStack s of
+    [] -> iError EmptyStackError
+    (head : tail) -> putState $ s {envStack = Map.insert key (StrictBinding value) head : tail}
+
+-- | Creates a new lazy binding whose evaluation will be deferred until the value is looked up.
+bindLazy :: String -> Interpreter DExpr -> Interpreter ()
+bindLazy key value = do
+  s <- getState
+  case envStack s of
+    [] -> iError EmptyStackError
+    (head : tail) -> do
+      ref <- newIORef $ Deferred value
+      putState $ s {envStack = Map.insert key (LazyBinding ref) head : tail}
 
 -- | Binds all of the names to the given values in the current environment.
 bindAll :: [String] -> [DExpr] -> Interpreter ()
 bindAll names values = do
   unless (length names == length values) (iError (ArgumentCountError (length names) (length values)))
-  let bindingPairs = zip names values
-  sequence_ (uncurry bind <$> bindingPairs)
+  uncurry bind `mapM_` zip names values

@@ -36,9 +36,9 @@ repl = do
             Right (Just expr) -> do
               value <- lift $ execInterpreter (eval expr) state
               case value of
-                Left err -> do
+                (Left err, state') -> do
                   outputStrLn $ show err
-                  loop state
-                Right (res, state') -> do
+                  loop state'
+                (Right res, state') -> do
                   outputStrLn $ show res
                   loop state'
