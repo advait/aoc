@@ -27,16 +27,16 @@
 
 ; List functions
 (assert-equal (count nil) 0)
-(assert-equal (count (quote (1 2 3))) 3)
+(assert-equal (count '(1 2 3)) 3)
 (let (
     +1 (fn (n) (+ n 1))
-    l  (quote (1 2 3))
+    l  '(1 2 3)
   )
-  (assert-equal (map +1 l) (quote (2 3 4)))
+  (assert-equal (map +1 l) '(2 3 4))
 )
 (assert-equal (map error ()) ())
-(assert-equal (cons "hi" ()) (quote ("hi")))
-(assert-equal (cons "hi" (quote (1))) (quote ("hi" 1)))
+(assert-equal (cons "hi" ()) '("hi"))
+(assert-equal (cons "hi" '(1)) '("hi" 1))
 
 ; Computation tests
 (let
@@ -61,5 +61,5 @@
 (assert-true (starts-with "hello" ""))
 (assert-true (starts-with "hello" "he"))
 (assert-false (starts-with "hello" "false"))
-(assert-equal (split "1\n2" "\n") (quote ("1" "2")))
-(assert-equal (split "" "\n") (quote ("")))
+(assert-equal (split "1\n2" "\n") '("1" "2"))
+(assert-equal (split "" "\n") '(""))

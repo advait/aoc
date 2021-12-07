@@ -21,9 +21,14 @@ spec = do
     it "parses lists" $ do
       shouldParse $ DList []
       shouldParse $ DList [DInt 3]
+    it "parses quotes" $ do
+      "'a" `shouldParseTo` DList [DSymbol "quote", DSymbol "a"]
 
 shouldParse :: DExpr -> IO ()
-shouldParse a = do
-  case runParser exprP () "" (Text.pack $ show a) of
+shouldParse a = show a `shouldParseTo` a
+
+shouldParseTo :: String -> DExpr -> IO ()
+shouldParseTo from to = do
+  case runParser exprP () "" (Text.pack from) of
     Left err -> fail $ show err
-    Right res -> unless (a == res) $ fail (show a <> " ≠ " <> show res)
+    Right res -> unless (to == res) $ fail (show to <> " ≠ " <> show res)

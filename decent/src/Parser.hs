@@ -64,11 +64,28 @@ listP = do
   _ <- lexeme $ char ')'
   pure $ DList items
 
+-- | Shorthand notation for quoted expressions
+quotedP :: Parser DExpr
+quotedP =
+  let quote = do
+        _ <- char '\''
+        (\expr -> DList [DSymbol "quote", expr]) <$> exprP
+
+      quasi = do
+        _ <- char '`'
+        (\expr -> DList [DSymbol "quasiquote", expr]) <$> exprP
+
+      unquote = do
+        _ <- char ','
+        (\expr -> DList [DSymbol "unquote", expr]) <$> exprP
+   in choice [quote, quasi, unquote]
+
 -- | Main expression parser
 exprP :: Parser DExpr
 exprP =
   choice
-    [ stringP,
+    [ quotedP,
+      stringP,
       try integerP, -- "try" because "-" is an integer prefix as well as a symbol
       symbolP,
       listP

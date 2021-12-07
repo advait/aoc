@@ -6,7 +6,7 @@
 
 ;; Returns whether the given parameter is a list.
 (def! list? (fn (l)
-  (= (typeof l) (quote List))
+  (= (typeof l) 'List)
 ))
 
 ; Boolean functions
