@@ -1,0 +1,54 @@
+(load-file "../src/Base.dc")
+(load-file "./Puzzles.dc")
+
+(def! input (read-puzzle 1))
+(def! readings
+  (let (
+    lines (split input "\n")
+    not-empty? (fn (s) (not (empty? s)))
+    )
+  (map string-to-int (filter not-empty? lines))
+  )
+)
+
+(def! make-pairs (fn (l)
+  (if (< (count l) 2)
+    ()
+    (let (
+      p1 (head l)
+      rest (drop l 1)
+      p2 (head rest)
+      pair (cons p1 (cons p2 ()))
+    ) (cons pair (make-pairs rest))
+    )
+  )
+))
+
+(def! is-increasing (fn (pair)
+  (> (nth pair 1) (nth pair 0))
+))
+
+(def! count-increasing (fn (p)
+  (count (filter is-increasing p))
+))
+
+(print "Part A:")
+(print (count-increasing (make-pairs readings)))
+
+(def! make-trips (fn (l)
+  (if (< (count l) 3)
+    ()
+    (let (
+      p1 (nth l 0)
+      p2 (nth l 1)
+      p3 (nth l 2)
+      rest (drop l 1)
+      trip (cons p1 (cons p2 (cons p3 ())))
+    ) (cons (+ p1 (+ p2 p3)) (make-trips rest))
+    )
+  )
+))
+(def! trips (make-trips readings))
+
+(print "Part B:")
+(print (count-increasing (make-pairs trips)))

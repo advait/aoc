@@ -275,6 +275,11 @@ builtins =
           DFunction $ \params -> do
             strings <- expectString `mapM` params
             pure $ DString $ foldl (<>) "" strings
+        ),
+        ( "string-to-int",
+          DFunction $ \params -> do
+            p1 <- expect1 params >>= expectString
+            pure $ DInt $ read p1
         )
       ]
 

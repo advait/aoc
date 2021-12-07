@@ -50,33 +50,6 @@
   (= 0 (count l))
 ))
 
-;; Applies the map function to every item in the list.
-(def! map (fn (f l)
-  (if (= 0 (count l))
-    ()
-    (cons (f (head l)) (map f (tail l)))
-  )
-))
-
-;; Filters items in the list that match the given predicate.
-(def! filter (fn (pred l)
-  (if (= 0 (count 1))
-    ()
-    (let (h (head l))
-      (if (pred h)
-        (cons h (filter pred (tail l)))
-        (filter pred (tail l))
-      )
-    )
-  )
-))
-
-; String functions
-; ------------------------------------------------------------------------------
-
-; TODO: Support char literals
-(def! newline (head "\n"))
-
 ;; Drops n characters from the given list or string.
 (def! drop (fn (s n)
   (if (or (<= n 0) (empty? s))
@@ -94,6 +67,41 @@
       (take (tail s) (- n 1)))
   )
 ))
+
+;; Returns the nth element of the list or string.
+(def! nth (fn (l n)
+  (if (>= n (count l))
+    (error "Out of bounds")
+    (head (drop l n))
+  )
+))
+
+;; Applies the map function to every item in the list.
+(def! map (fn (f l)
+  (if (= 0 (count l))
+    ()
+    (cons (f (head l)) (map f (tail l)))
+  )
+))
+
+;; Filters items in the list that match the given predicate.
+(def! filter (fn (pred l)
+  (if (empty? l)
+    ()
+    (let (h (head l))
+      (if (pred h)
+        (cons h (filter pred (tail l)))
+        (filter pred (tail l))
+      )
+    )
+  )
+))
+
+; String functions
+; ------------------------------------------------------------------------------
+
+; TODO: Support char literals
+(def! newline (head "\n"))
 
 ;; Returns whether the given string starts with the given prefix.
 (def! starts-with (fn (haystack needle)
