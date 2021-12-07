@@ -45,7 +45,7 @@ eval' = do
     -- Functions evaluate to themselves
     e@DFunction {} -> pure e
     -- Names dereference in the environment
-    e@(DSymbol _) -> lookup e
+    (DSymbol name) -> lookup name
     -- Named function calls
     DList (DSymbol name : params) ->
       special name params
@@ -87,7 +87,7 @@ eval' = do
       createLazyBinding `mapM_` bindings
       boundEnv <- getEnv
       -- We lookup all the bindings from left to right, effectively un-lazying them.
-      lookup `mapM_` (DSymbol . fst <$> bindings)
+      lookup `mapM_` (fst <$> bindings)
       finalValue <- eval finalExpr
       popEnv
       pure finalValue
@@ -132,10 +132,8 @@ eval' = do
           iError $ TypeError TFunction $ typeOf e
 
 -- | Recursively looks up a value in the environment stack, potentially evaluating lazy bindings.
-lookup :: DExpr -> Interpreter DExpr
-lookup expr = do
-  name <- expectSymbol expr
-  env <- getEnv
+lookup :: String -> Interpreter DExpr
+lookup name = do
   let lookup' :: [Env] -> Interpreter DExpr
       lookup' [] = iError $ ReferenceError name
       lookup' (head : tail) =
@@ -152,6 +150,7 @@ lookup expr = do
                 expr <- deferred
                 writeIORef ref $ Evaluated expr
                 pure expr
+  env <- getEnv
   lookup' env
 
 -- | A closure is created whenever a function is defined. It consists of three things:
