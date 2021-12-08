@@ -116,7 +116,7 @@
         `(,acc)
         (if (starts-with s' sep)
           (cons acc (split (drop s' (count sep)) sep))
-          (rec (concat acc (take s' 1)) (drop s' 1))
+          (rec (concat acc (take s' 1)) (tail s'))
         )
       )
     ))

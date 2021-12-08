@@ -16,11 +16,12 @@ type Parser a = ParsecT Text () Identity a
 whitespace :: Parser ()
 whitespace = () <$ many (oneOf [' ', '\t', '\n'])
 
--- | Wraps p so that it consumes trailing whitespace.
+-- | Wraps p so that it consumes trailing whitespace and comments.
 lexeme :: Parser a -> Parser a
 lexeme p = do
   a <- p
   _ <- whitespace
+  _ <- many (commentP *> whitespace)
   pure a
 
 integerP :: Parser DExpr
