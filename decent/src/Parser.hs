@@ -67,18 +67,17 @@ listP = do
 -- | Shorthand notation for quoted expressions
 quotedP :: Parser DExpr
 quotedP =
-  let quote = do
-        _ <- char '\''
-        (\expr -> DList [DSymbol "quote", expr]) <$> exprP
+  let makeQuote :: String -> DExpr -> DExpr
+      makeQuote quoteName e = DList [DSymbol quoteName, e]
 
-      quasi = do
-        _ <- char '`'
-        (\expr -> DList [DSymbol "quasiquote", expr]) <$> exprP
-
-      unquote = do
-        _ <- char ','
-        (\expr -> DList [DSymbol "unquote", expr]) <$> exprP
-   in choice [quote, quasi, unquote]
+      quotes :: [Parser DExpr]
+      quotes =
+        [ makeQuote "quote" <$> (char '\'' *> exprP),
+          makeQuote "quasiquote" <$> (char '`' *> exprP),
+          makeQuote "unquote-splice" <$> try (string ",@" *> exprP),
+          makeQuote "unquote" <$> (string "," *> exprP)
+        ]
+   in choice quotes
 
 -- | Main expression parser
 exprP :: Parser DExpr

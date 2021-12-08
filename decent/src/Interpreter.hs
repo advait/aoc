@@ -118,6 +118,20 @@ eval' = do
 
     -- quote
     special "quote" params = expect1 params
+    -- quasiquote
+    special "quasiquote" params =
+      let unquote :: DExpr -> Interpreter [DExpr]
+          unquote (DList (DSymbol "unquote" : params')) = do
+            p1' <- expect1 params' >>= eval
+            pure [p1']
+          unquote (DList (DSymbol "unquote-splice" : params')) = do
+            expect1 params' >>= eval >>= expectList
+          -- Recursively search list, unquoting children
+          unquote (DList params') = do
+            flattened <- concat <$> (unquote `mapM` params')
+            pure [DList flattened]
+          unquote expr = pure [expr]
+       in expect1 params >>= unquote >>= expect1
     -- General function calls
     special first params = general (DSymbol first) params
 

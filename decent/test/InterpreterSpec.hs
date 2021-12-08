@@ -26,6 +26,9 @@ spec = do
       "((fn (a b) (+ a b)) 2 3)" `shouldEvalTo` "5"
       "(let (double (fn (a) (* a 2))) (double 1))" `shouldEvalTo` "2"
       "(let (double (fn (a) (* a 2))) (double (double 2))))" `shouldEvalTo` "8"
+    it "handles quoting" $ do
+      "(let (a '(3 4)) `(1 2 ,a))" `shouldEvalTo` "(1 2 (3 4))"
+      "(let (a '(3 4)) `(1 2 ,@a))" `shouldEvalTo` "(1 2 3 4)"
     it "loads base" $ do
       "(load-file \"./src/Base.dc\")" `shouldEvalTo` "()"
 
