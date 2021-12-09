@@ -9,6 +9,22 @@
   `(def! ,name (fn ,params ,body))
 )
 
+;; Tests for multuple conditions, returning the corresponding value if a condition is true.
+(defmacro cond (& conds)
+  (if (empty? conds)
+    (error "Did not match cond")
+    (let (
+      pair (head conds)
+      test (head pair)
+      value (head (tail pair))
+    ) `(if ,test ,value (cond ,@(tail conds)))
+    )
+  )
+)
+
+;; Makes cond expressions more readable.
+(def! otherwise true)
+
 ; Type-related functions
 ; ------------------------------------------------------------------------------
 
@@ -84,6 +100,15 @@
   )
 )
 
+;; Synonym for head
+(def! first head)
+
+;; Returns the second item in the list.
+(defn second (l) (nth l 1))
+
+;; Returns the third item in the list.
+(defn third (l) (nth l 2))
+
 ;; Applies the map function to every item in the list.
 (defn map (f l)
   (if (= 0 (count l))
@@ -105,6 +130,14 @@
   )
 )
 
+;; Applies the fold function to the list from left to right.
+(defn foldl (f acc l)
+  (if (empty? l)
+    acc
+    (foldl f (f (head l) acc) (tail l))
+  )
+)
+
 ; String functions
 ; ------------------------------------------------------------------------------
 
@@ -120,12 +153,10 @@
 (defn split (s sep)
   (let
     (rec (fn (acc s')
-      (if (= "" s')
-        `(,acc)
-        (if (starts-with s' sep)
-          (cons acc (split (drop s' (count sep)) sep))
-          (rec (concat acc (take s' 1)) (tail s'))
-        )
+      (cond
+        ((= "" s')             `(,acc))
+        ((starts-with s' sep)  (cons acc (split (drop s' (count sep)) sep)))
+        (otherwise             (rec (concat acc (take s' 1)) (tail s')))
       )
     ))
     (rec "" s)

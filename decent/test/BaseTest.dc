@@ -25,6 +25,10 @@
   )
 )
 
+; Core macros
+(assert-equal (cond (true 1)) 1)
+(assert-equal (cond (false 1) (otherwise 2)) 2)
+
 ; List functions
 (assert-equal (count nil) 0)
 (assert-equal (count '(1 2 3)) 3)

@@ -12,3 +12,6 @@ spec = do
     it "Solves puzzle 1" $ do
       _ <- throwInterpreter $ runFile "./aoc/Puzzle1.dc"
       pure ()
+    it "Solves puzzle 2" $ do
+      _ <- throwInterpreter $ runFile "./aoc/Puzzle2.dc"
+      pure ()

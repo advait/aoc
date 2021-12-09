@@ -20,7 +20,6 @@ import Parser (fileP)
 import System.FilePath as FilePath
 import qualified Text.Parsec as Parsec
 import Types
-import Types (expectMacroDef)
 import Prelude hiding (error, lookup)
 
 -- | Evaluates the given expression, yielding a value.
@@ -43,8 +42,9 @@ eval' = do
     e@(DChar _) -> pure e
     -- Empty lists evaluate to themselves
     e@(DList []) -> pure e
-    -- Functions evaluate to themselves
-    e@DFunction {} -> pure e
+    -- Functions and macros evaluate to themselves
+    e@(DFunction _) -> pure e
+    e@(DMacro _) -> pure e
     -- Names dereference in the environment
     (DSymbol name) -> lookup name
     -- Named function calls
@@ -103,7 +103,7 @@ eval' = do
       (macroName, paramNames, result) <- expectMacroDef params
       macro <- makeMacro paramNames result
       bind macroName macro
-      pure dNil
+      pure macro
 
     -- do statement
     special "do" params = do

@@ -1,0 +1,79 @@
+(load-file "../src/Base.dc")
+(load-file "./Puzzles.dc")
+
+(def! input (read-puzzle 2))
+
+(def! forward "forward")
+(def! up "up")
+(def! down "down")
+
+;; List (String Int)
+(def! instrs
+  (let (
+    lines      (split input "\n")
+    not-empty? (fn (s) (not (empty? s)))
+    line-to-instr
+      (fn (line)
+        (let (
+          pair (split line " ")
+          dir  (first pair)
+          dist (string-to-int (second pair))
+        ) `(,dir ,dist))
+      )
+    )
+  (map line-to-instr (filter not-empty? lines))
+  )
+)
+
+(defn apply-instr-basic (instr pos)
+  (let (
+    dir  (first instr)
+    dist (second instr)
+    x    (first pos)
+    y    (second pos)
+  )
+    (cond
+      ((= dir forward) `(,(+ x dist) ,y))
+      ((= dir up)      `(,x       ,(- y dist)))
+      ((= dir down)    `(,x       ,(+ y dist)))
+    )
+  )
+)
+
+(print "Part A:")
+(let (
+  final-pos (foldl apply-instr-basic '(0 0) instrs)
+  )
+  (do
+    (print final-pos)
+    (print "Mul: ")
+    (print (* (first final-pos) (second final-pos)))
+  )
+)
+
+(defn apply-instr-aim (instr pos)
+  (let (
+    dir  (first instr)
+    dist (second instr)
+    x    (first pos)
+    y    (second pos)
+    aim  (third pos)
+  )
+    (cond
+      ((= dir forward) `(,(+ x dist) ,(+ y (* aim dist)) ,aim))
+      ((= dir up)      `(,x          ,y                  ,(- aim dist)))
+      ((= dir down)    `(,x          ,y                  ,(+ aim dist)))
+    )
+  )
+)
+
+(print "Part B:")
+(let (
+  final-pos (foldl apply-instr-aim '(0 0 0) instrs)
+  )
+  (do
+    (print final-pos)
+    (print "Mul: ")
+    (print (* (first final-pos) (second final-pos)))
+  )
+)
