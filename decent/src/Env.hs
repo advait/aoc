@@ -27,8 +27,18 @@ bindLazy key value = do
       ref <- newIORef $ Deferred value
       putState $ s {envStack = Map.insert key (LazyBinding ref) head : tail}
 
--- | Binds all of the names to the given values in the current environment.
+-- | Binds all of the names to the given values in the current environment, handling varargs syntax.
 bindAll :: [String] -> [DExpr] -> Interpreter ()
-bindAll names values = do
-  unless (length names == length values) (iError (ArgumentCountError (length names) (length values)))
-  uncurry bind `mapM_` zip names values
+bindAll names values =
+  let bindAll' :: [String] -> [DExpr] -> Interpreter ()
+      bindAll' [] [] = pure ()
+      -- Varargs
+      bindAll' ("&" : tail) values = do
+        name <- expect1 tail
+        bind name $ DList values
+      bindAll' (name : nTail) (value : vTail) = do
+        bind name value
+        bindAll' nTail vTail
+      -- TODO: Potential partially bound state if we get an error here.
+      bindAll' _ _ = iError $ ArgumentCountError (length names) (length values)
+   in bindAll' names values

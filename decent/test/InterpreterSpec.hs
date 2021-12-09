@@ -29,6 +29,9 @@ spec = do
     it "handles quoting" $ do
       "(let (a '(3 4)) `(1 2 ,a))" `shouldEvalTo` "(1 2 (3 4))"
       "(let (a '(3 4)) `(1 2 ,@a))" `shouldEvalTo` "(1 2 3 4)"
+    it "handles varargs" $ do
+      "((fn (n & a) `(,n ,a)) 1 2 3)" `shouldEvalTo` "(1 (2 3))"
+      "((fn (& a) a) 1 2 3)" `shouldEvalTo` "(1 2 3)"
     it "loads base" $ do
       "(load-file \"./src/Base.dc\")" `shouldEvalTo` "()"
 
