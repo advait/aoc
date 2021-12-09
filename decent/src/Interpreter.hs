@@ -20,6 +20,7 @@ import Parser (fileP)
 import System.FilePath as FilePath
 import qualified Text.Parsec as Parsec
 import Types
+import Types (expectMacroDef)
 import Prelude hiding (error, lookup)
 
 -- | Evaluates the given expression, yielding a value.
@@ -97,6 +98,13 @@ eval' = do
       (paramNames, result) <- expectFnDef params
       makeClosure paramNames result
 
+    -- Macros
+    special "defmacro" params = do
+      (macroName, paramNames, result) <- expectMacroDef params
+      macro <- makeMacro paramNames result
+      bind macroName macro
+      pure dNil
+
     -- do statement
     special "do" params = do
       let loop [expr] = eval expr
@@ -142,6 +150,7 @@ eval' = do
         DFunction fn -> do
           evalParams <- eval `mapM` params
           fn evalParams
+        DMacro macro -> macro params
         e ->
           iError $ TypeError TFunction $ typeOf e
 
@@ -186,6 +195,20 @@ makeClosure names value = do
           putEnv tempEnv
           pure res
       )
+
+-- | A macro is similar to a function but has two main differences:
+-- | 1. It doesn't have a closure. When called, instead of operating in the closed environment
+-- |    (like a function), the macro simply operates in the caller's environment.
+-- | 2. A macro returns an expression that is finally evaluated in the caller's environment.
+-- |    With this approach, the macro can return arbitrary Decent code.
+makeMacro :: [String] -> DExpr -> Interpreter DExpr
+makeMacro names value = pure $
+  DMacro $ \params -> do
+    pushEnv
+    bindAll names params
+    res <- eval value
+    popEnv
+    eval res
 
 -- | Bindings for builtin functions and values.
 builtins :: Env

@@ -1,91 +1,99 @@
 ;; The Decent Base library
 ; ------------------------------------------------------------------------------
 
+; Core macros
+; ------------------------------------------------------------------------------
+
+;; Creates a function with a specified name.
+(defmacro defn (name params body)
+  `(def! ,name (fn ,params ,body))
+)
+
 ; Type-related functions
 ; ------------------------------------------------------------------------------
 
 ;; Returns whether the given parameter is a list.
-(def! list? (fn (l)
+(defn list? (l)
   (= (typeof l) 'List)
-))
+)
 
 ; Boolean functions
 ; ------------------------------------------------------------------------------
 
-(def! not (fn (a)
+(defn not (a)
   (if a false true)
-))
+)
 
-(def! != (fn (a b)
+(defn != (a b)
   (not (= a b))
-))
+)
 
-(def! and (fn (a b)
+(defn and (a b)
   (if (not a)
     false
     b
   )
-))
+)
 
-(def! or (fn (a b)
+(defn or (a b)
   (not (and (not a) (not b)))
-))
+)
 
 ; Numeric functions
 ; ------------------------------------------------------------------------------
 
-(def! <= (fn (a b)
+(defn <= (a b)
   (or (< a b) (= a b))
-))
+)
 
-(def! >= (fn (a b)
+(defn >= (a b)
   (or (> a b) (= a b))
-))
+)
 
 ; List functions
 ; ------------------------------------------------------------------------------
 
 ;; Returns whether the given list is empty.
-(def! empty? (fn (l)
+(defn empty? (l)
   (= 0 (count l))
-))
+)
 
 ;; Drops n characters from the given list or string.
-(def! drop (fn (s n)
+(defn drop (s n)
   (if (or (<= n 0) (empty? s))
     s
     (drop (tail s) (- n 1))
   )
-))
+)
 
 ;; Takes n characters from the front of the given list or string.
-(def! take (fn (s n)
+(defn take (s n)
   (if (or (<= n 0) (empty? s))
     ""
     (cons
       (head s)
       (take (tail s) (- n 1)))
   )
-))
+)
 
 ;; Returns the nth element of the list or string.
-(def! nth (fn (l n)
+(defn nth (l n)
   (if (>= n (count l))
     (error "Out of bounds")
     (head (drop l n))
   )
-))
+)
 
 ;; Applies the map function to every item in the list.
-(def! map (fn (f l)
+(defn map (f l)
   (if (= 0 (count l))
     ()
     (cons (f (head l)) (map f (tail l)))
   )
-))
+)
 
 ;; Filters items in the list that match the given predicate.
-(def! filter (fn (pred l)
+(defn filter (pred l)
   (if (empty? l)
     ()
     (let (h (head l))
@@ -95,7 +103,7 @@
       )
     )
   )
-))
+)
 
 ; String functions
 ; ------------------------------------------------------------------------------
@@ -104,12 +112,12 @@
 (def! newline (head "\n"))
 
 ;; Returns whether the given string starts with the given prefix.
-(def! starts-with (fn (haystack needle)
+(defn starts-with (haystack needle)
   (= needle (take haystack (count needle)))
-))
+)
 
 ;; Splits the given string by the separator.
-(def! split (fn (s sep)
+(defn split (s sep)
   (let
     (rec (fn (acc s')
       (if (= "" s')
@@ -122,4 +130,4 @@
     ))
     (rec "" s)
   )
-))
+)

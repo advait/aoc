@@ -32,6 +32,9 @@ spec = do
     it "handles varargs" $ do
       "((fn (n & a) `(,n ,a)) 1 2 3)" `shouldEvalTo` "(1 (2 3))"
       "((fn (& a) a) 1 2 3)" `shouldEvalTo` "(1 2 3)"
+    it "handles macros" $ do
+      "(do (defmacro m (a) a) \n (m 1))" `shouldEvalTo` "1"
+      "(do (defmacro m (a) `(+ ,a 1)) \n (m 2))" `shouldEvalTo` "3"
     it "loads base" $ do
       "(load-file \"./src/Base.dc\")" `shouldEvalTo` "()"
 

@@ -82,6 +82,7 @@ data DExpr
   | DChar Char
   | DList [DExpr]
   | DFunction ([DExpr] -> Interpreter DExpr)
+  | DMacro ([DExpr] -> Interpreter DExpr)
 
 instance Show DExpr where
   show (DSymbol symbol) = symbol
@@ -90,6 +91,7 @@ instance Show DExpr where
   show (DChar c) = show c
   show (DList l) = "(" <> unwords (show <$> l) <> ")"
   show (DFunction _) = "#<function>"
+  show (DMacro _) = "#<macro>"
 
 instance Eq DExpr where
   (DSymbol a) == (DSymbol b) = a == b
@@ -106,6 +108,7 @@ data DType
   | TChar
   | TList
   | TFunction
+  | TMacro
 
 instance Show DType where
   show TSymbol = "Symbol"
@@ -114,6 +117,7 @@ instance Show DType where
   show TChar = "Char"
   show TList = "List"
   show TFunction = "Function"
+  show TMacro = "Macro"
 
 typeOf :: DExpr -> DType
 typeOf (DSymbol _) = TSymbol
@@ -122,6 +126,7 @@ typeOf (DString _) = TString
 typeOf (DChar _) = TChar
 typeOf (DList _) = TList
 typeOf (DFunction _) = TFunction
+typeOf (DMacro _) = TMacro
 
 -- Special values (you may regret keeping these as symbols...)
 
@@ -258,6 +263,13 @@ expectFnDef params = do
   params' <- expectList p1
   params <- expectSymbol `mapM` params'
   pure (params, p2)
+
+expectMacroDef :: [DExpr] -> Interpreter (String, [String], DExpr)
+expectMacroDef params = do
+  (p1, p2, p3) <- expect3 params
+  name <- expectSymbol p1
+  params <- expectList p2 >>= \p -> expectSymbol `mapM` p
+  pure (name, params, p3)
 
 fn2IntIntInt :: (Int -> Int -> Int) -> DExpr
 fn2IntIntInt f =

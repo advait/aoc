@@ -11,7 +11,7 @@
   )
 )
 
-(def! make-pairs (fn (l)
+(defn make-pairs (l)
   (if (< (count l) 2)
     ()
     (let (
@@ -22,20 +22,20 @@
     ) (cons pair (make-pairs rest))
     )
   )
-))
+)
 
-(def! is-increasing (fn (pair)
+(defn is-increasing (pair)
   (> (nth pair 1) (nth pair 0))
-))
+)
 
-(def! count-increasing (fn (p)
+(defn count-increasing (p)
   (count (filter is-increasing p))
-))
+)
 
 (print "Part A:")
 (print (count-increasing (make-pairs readings)))
 
-(def! make-trips (fn (l)
+(defn make-trips (l)
   (if (< (count l) 3)
     ()
     (let (
@@ -46,7 +46,7 @@
     ) (cons (+ p1 (+ p2 p3)) (make-trips rest))
     )
   )
-))
+)
 (def! trips (make-trips readings))
 
 (print "Part B:")
